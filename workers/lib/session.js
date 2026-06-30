@@ -1,11 +1,11 @@
 'use strict'
 
-const { promises: fs } = require('fs')
-const path = require('path')
+const { isBare } = require('which-runtime')
+const { promises: fs } = isBare ? require('bare-fs') : require('fs')
+const path = isBare ? require('bare-path') : require('path')
 const Hyperswarm = require('hyperswarm')
 const Protomux = require('protomux')
 const c = require('compact-encoding')
-const b4a = require('b4a')
 const { Room } = require('./room.js')
 const { createLog, openLog } = require('./prediction-log.js')
 const { randomNonce, commitHash } = require('./commit-reveal.js')
@@ -25,9 +25,11 @@ async function loadSecrets (secretsPath, secrets) {
   } catch {}
 }
 
-function predictionsToReveal (secretIds, predictions) {
-  const ids = new Set(secretIds)
-  return predictions.filter((p) => p.status === 'committed' && ids.has(p.id)).map((p) => p.id)
+function matchesToReveal (secretMatchIds, matches, revealed) {
+  const ids = new Set(secretMatchIds)
+  return matches
+    .filter((m) => m.status === 'locked' && ids.has(m.id) && !revealed.has(m.id))
+    .map((m) => m.id)
 }
 
 class Session {
@@ -37,8 +39,8 @@ class Session {
     this.storeDir = storeDir
     this._secretsPath = path.join(storeDir, 'secrets.json')
     this.swarm = new Hyperswarm()
-    this.secrets = new Map() // id -> { pick, nonce }
-    this._revealed = new Set() // ids we have already appended a reveal for
+    this.secrets = new Map() // matchId -> { a, b, nonce }
+    this._revealed = new Set() // matchIds we have already appended a reveal for
     this._status = 'connecting'
     this._onState = () => {}
     this.room = new Room({
@@ -75,11 +77,16 @@ class Session {
     message.send(JSON.stringify({ key: this.log.localWriterKey, name: this.name }))
   }
 
-  async commit (pick) {
+  async addMatch (teamA, teamB) {
     const id = randomNonce().slice(0, 16)
+    await this.log.addMatch(id, teamA, teamB, Date.now())
+  }
+
+  async commit (matchId, a, b) {
+    const score = a + '-' + b
     const nonce = randomNonce()
-    this.secrets.set(id, { pick, nonce })
-    await this.log.commit(id, commitHash(pick, nonce), this.name)
+    this.secrets.set(matchId, { a, b, nonce })
+    await this.log.commit(matchId, commitHash(score, nonce), this.name)
     try {
       await saveSecrets(this._secretsPath, this.secrets)
     } catch (err) {
@@ -87,32 +94,25 @@ class Session {
     }
   }
 
-  async lock () { await this.log.lock() }
-
-  async reveal (id) {
-    const secret = this.secrets.get(id)
-    if (!secret) throw new Error('No saved secret for this prediction (committed elsewhere or lost on restart)')
-    await this.log.reveal(id, secret.pick, secret.nonce)
-  }
+  async lockMatch (matchId) { await this.log.lockMatch(matchId) }
 
   onState (cb) { this._onState = cb; this._emit() }
 
   async _emit () {
     const snap = await this.log.snapshot()
-    if (snap.phase === 'locked') {
-      for (const id of predictionsToReveal([...this.secrets.keys()], snap.predictions)) {
-        if (this._revealed.has(id)) continue
-        this._revealed.add(id)
-        const secret = this.secrets.get(id)
-        try {
-          await this.log.reveal(id, secret.pick, secret.nonce)
-        } catch (err) {
-          this._revealed.delete(id)
-          console.error(err)
-        }
+    for (const matchId of matchesToReveal([...this.secrets.keys()], snap.matches, this._revealed)) {
+      this._revealed.add(matchId)
+      const secret = this.secrets.get(matchId)
+      try {
+        await this.log.reveal(matchId, secret.a + '-' + secret.b, secret.nonce)
+      } catch (err) {
+        this._revealed.delete(matchId)
+        console.error(err)
       }
     }
-    this._onState({ ...snap, status: this._status })
+    const mine = {}
+    for (const [matchId, secret] of this.secrets) mine[matchId] = { a: secret.a, b: secret.b }
+    this._onState({ ...snap, mine, status: this._status })
   }
 
   async close () {
@@ -132,4 +132,4 @@ async function joinSession ({ name, key, storeDir }) {
   return new Session({ log, name, storeDir })
 }
 
-module.exports = { Session, createSession, joinSession, predictionsToReveal, saveSecrets, loadSecrets }
+module.exports = { Session, createSession, joinSession, matchesToReveal, saveSecrets, loadSecrets }
