@@ -32,12 +32,13 @@ async function stopSession () {
 function wireState () {
   session.onState((s) => sendEvent({
     evt: 'log-state',
-    phase: s.phase,
+    matches: s.matches,
+    predictions: s.predictions,
+    mine: s.mine,
     host: s.host,
     isHost: s.isHost,
     writable: s.writable,
-    status: s.status,
-    predictions: s.predictions
+    status: s.status
   }))
 }
 
@@ -112,12 +113,12 @@ pipe.on('data', async (data) => {
     } else if (msg.cmd === 'leave-room') {
       await stopSession()
       sendEvent({ evt: 'room-left' })
+    } else if (msg.cmd === 'add-match') {
+      if (session) await session.addMatch(msg.teamA, msg.teamB)
+    } else if (msg.cmd === 'lock-match') {
+      if (session) await session.lockMatch(msg.matchId)
     } else if (msg.cmd === 'commit') {
-      if (session) await session.commit(msg.pick)
-    } else if (msg.cmd === 'lock') {
-      if (session) await session.lock()
-    } else if (msg.cmd === 'reveal') {
-      if (session) await session.reveal(msg.id)
+      if (session) await session.commit(msg.matchId, msg.a, msg.b)
     } else if (msg.cmd === 'list-rooms') {
       const rooms = await listManifests(roomsDir())
       sendEvent({ evt: 'rooms-list', rooms })
