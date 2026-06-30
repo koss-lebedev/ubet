@@ -1,21 +1,30 @@
 const WORKER_SPEC = '/workers/main.js'
 
-export type Prediction = {
+export type Team = { code: string; flag: string; name: string }
+
+export type Match = {
   id: string
+  teamA: Team
+  teamB: Team
+  status: 'open' | 'locked'
+  createdAt: number
+}
+
+export type MatchPrediction = {
   author: string
   authorName: string
-  hash: string
   status: 'committed' | 'revealed' | 'invalid'
-  pick?: string
+  score?: string
 }
 
 export type LogState = {
-  phase: 'open' | 'locked'
+  matches: Match[]
+  predictions: Record<string, MatchPrediction[]>
+  mine: Record<string, { a: number; b: number }>
   host: string | null
   isHost: boolean
   writable: boolean
   status: 'connecting' | 'connected'
-  predictions: Prediction[]
 }
 
 export type RoomEntry = {
@@ -36,9 +45,9 @@ export type Command =
   | { cmd: 'create-room'; name: string }
   | { cmd: 'join-room'; name: string; key: string }
   | { cmd: 'leave-room' }
-  | { cmd: 'commit'; pick: string }
-  | { cmd: 'lock' }
-  | { cmd: 'reveal'; id: string }
+  | { cmd: 'add-match'; teamA: Team; teamB: Team }
+  | { cmd: 'lock-match'; matchId: string }
+  | { cmd: 'commit'; matchId: string; a: number; b: number }
   | { cmd: 'list-rooms' }
   | { cmd: 'rejoin-room'; storeDir: string; key: string; name: string }
 

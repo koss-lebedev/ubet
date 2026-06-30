@@ -4,8 +4,13 @@ import { Landing } from '@/screens/Landing'
 import { Room } from '@/screens/Room'
 
 const EMPTY: LogState = {
-  phase: 'open', host: null, isHost: false, writable: false,
-  status: 'connecting', predictions: []
+  matches: [],
+  predictions: {},
+  mine: {},
+  host: null,
+  isHost: false,
+  writable: false,
+  status: 'connecting'
 }
 
 export default function App() {
