@@ -4,11 +4,19 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
-import { send } from '@/lib/bridge'
+import { send, type RoomEntry } from '@/lib/bridge'
 
 const HEX64 = /^[0-9a-fA-F]{64}$/
 
-export function Landing({ error, onError }: { error: string; onError: (m: string) => void }) {
+export function Landing({
+  error,
+  onError,
+  rooms,
+}: {
+  error: string
+  onError: (m: string) => void
+  rooms: RoomEntry[]
+}) {
   const [name, setName] = useState('')
   const [key, setKey] = useState('')
 
@@ -34,6 +42,11 @@ export function Landing({ error, onError }: { error: string; onError: (m: string
     send({ cmd: 'join-room', name: name.trim(), key: key.trim() })
   }
 
+  function rejoin(room: RoomEntry) {
+    onError('')
+    send({ cmd: 'rejoin-room', storeDir: room.storeDir, key: room.key, name: room.name })
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center p-6">
       <Card className="w-full max-w-md">
@@ -57,6 +70,30 @@ export function Landing({ error, onError }: { error: string; onError: (m: string
           <Button className="w-full" variant="secondary" onClick={join}>
             Join room
           </Button>
+          {rooms.length > 0 ? (
+            <>
+              <Separator />
+              <div className="space-y-2">
+                <Label>Resume a room</Label>
+                <ul className="space-y-1">
+                  {rooms.map((room) => (
+                    <li key={room.storeDir}>
+                      <Button
+                        className="w-full justify-between font-mono text-xs"
+                        variant="ghost"
+                        onClick={() => rejoin(room)}
+                      >
+                        <span>{room.key.slice(0, 8)}…</span>
+                        <span className="text-muted-foreground font-sans">
+                          {room.name} · {new Date(room.createdAt).toLocaleDateString()}
+                        </span>
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </>
+          ) : null}
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
         </CardContent>
       </Card>

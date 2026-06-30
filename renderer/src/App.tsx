@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { startWorker, onEvent, type LogState } from '@/lib/bridge'
+import { startWorker, onEvent, send, type LogState, type RoomEntry } from '@/lib/bridge'
 import { Landing } from '@/screens/Landing'
 import { Room } from '@/screens/Room'
 
@@ -13,9 +13,11 @@ export default function App() {
   const [roomKey, setRoomKey] = useState('')
   const [log, setLog] = useState<LogState>(EMPTY)
   const [error, setError] = useState('')
+  const [rooms, setRooms] = useState<RoomEntry[]>([])
 
   useEffect(() => {
     startWorker()
+    send({ cmd: 'list-rooms' })
     const off = onEvent((e) => {
       switch (e.evt) {
         case 'room-ready':
@@ -28,6 +30,10 @@ export default function App() {
         case 'room-left':
           setScreen('landing')
           setLog(EMPTY)
+          send({ cmd: 'list-rooms' })
+          break
+        case 'rooms-list':
+          setRooms(e.rooms)
           break
         case 'error':
           setError(e.message)
@@ -38,7 +44,7 @@ export default function App() {
   }, [])
 
   return screen === 'landing' ? (
-    <Landing error={error} onError={setError} />
+    <Landing error={error} onError={setError} rooms={rooms} />
   ) : (
     <Room roomKey={roomKey} log={log} />
   )
