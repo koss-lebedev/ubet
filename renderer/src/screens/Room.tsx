@@ -4,6 +4,13 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger
+} from '@/components/ui/dialog'
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -21,6 +28,7 @@ const STATUS_VARIANT: Record<MatchPrediction['status'], 'secondary' | 'default' 
 }
 
 function AddMatch() {
+  const [open, setOpen] = useState(false)
   const [a, setA] = useState('')
   const [b, setB] = useState('')
 
@@ -29,39 +37,49 @@ function AddMatch() {
     send({ cmd: 'add-match', teamA: toTeam(a), teamB: toTeam(b) })
     setA('')
     setB('')
+    setOpen(false)
   }
 
   return (
-    <div className='space-y-2'>
-      <Label>Add a match</Label>
-      <Select value={a} onValueChange={setA}>
-        <SelectTrigger>
-          <SelectValue placeholder='Team A' />
-        </SelectTrigger>
-        <SelectContent>
-          {COUNTRIES.map((c) => (
-            <SelectItem key={c.code} value={c.code}>
-              {flagOf(c.code)} {c.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <Select value={b} onValueChange={setB}>
-        <SelectTrigger>
-          <SelectValue placeholder='Team B' />
-        </SelectTrigger>
-        <SelectContent>
-          {COUNTRIES.map((c) => (
-            <SelectItem key={c.code} value={c.code}>
-              {flagOf(c.code)} {c.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <Button className='w-full' onClick={add} disabled={!a || !b || a === b}>
-        Add match
-      </Button>
-    </div>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button className='w-full'>Add match</Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Add a match</DialogTitle>
+        </DialogHeader>
+        <div className='space-y-3'>
+          <Select value={a} onValueChange={setA}>
+            <SelectTrigger>
+              <SelectValue placeholder='Team A' />
+            </SelectTrigger>
+            <SelectContent>
+              {COUNTRIES.map((c) => (
+                <SelectItem key={c.code} value={c.code}>
+                  {flagOf(c.code)} {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={b} onValueChange={setB}>
+            <SelectTrigger>
+              <SelectValue placeholder='Team B' />
+            </SelectTrigger>
+            <SelectContent>
+              {COUNTRIES.map((c) => (
+                <SelectItem key={c.code} value={c.code}>
+                  {flagOf(c.code)} {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button className='w-full' onClick={add} disabled={!a || !b || a === b}>
+            Add match
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -122,26 +140,34 @@ function MatchCard({
 }) {
   return (
     <div className='space-y-3 rounded-md border p-4'>
-      <div className='flex items-center justify-between gap-2'>
-        <span className='font-medium'>
-          {match.teamA.flag} {match.teamA.name}
-          <span className='text-muted-foreground'> vs </span>
-          {match.teamB.flag} {match.teamB.name}
-        </span>
-        <span className='flex items-center gap-2'>
-          <Badge variant={match.status === 'locked' ? 'destructive' : 'secondary'}>
-            {match.status}
-          </Badge>
-          {isHost && match.status === 'open' ? (
-            <Button
-              size='sm'
-              variant='outline'
-              onClick={() => send({ cmd: 'lock-match', matchId: match.id })}
-            >
-              Lock
-            </Button>
-          ) : null}
-        </span>
+      <div className='flex items-center justify-end gap-2'>
+        <Badge variant={match.status === 'locked' ? 'destructive' : 'secondary'}>
+          {match.status === 'locked' ? 'game ended' : match.status}
+        </Badge>
+        {isHost && match.status === 'open' ? (
+          <Button
+            size='sm'
+            variant='outline'
+            onClick={() => send({ cmd: 'lock-match', matchId: match.id })}
+          >
+            Lock
+          </Button>
+        ) : null}
+      </div>
+      <div className='flex items-center justify-center gap-6'>
+        <div className='flex flex-col items-center gap-1'>
+          <span className='text-7xl leading-none'>{match.teamA.flag}</span>
+          <span className='text-xs font-mono font-semibold tracking-widest'>
+            {match.teamA.alpha3}
+          </span>
+        </div>
+        <span className='text-sm text-muted-foreground'>vs</span>
+        <div className='flex flex-col items-center gap-1'>
+          <span className='text-7xl leading-none'>{match.teamB.flag}</span>
+          <span className='text-xs font-mono font-semibold tracking-widest'>
+            {match.teamB.alpha3}
+          </span>
+        </div>
       </div>
 
       {match.status === 'open' ? (
@@ -161,7 +187,9 @@ function MatchCard({
                 {p.authorName}
                 {p.status === 'revealed' ? <span className='font-mono'> {p.score}</span> : null}
               </span>
-              <Badge variant={STATUS_VARIANT[p.status]}>{p.status}</Badge>
+              {p.status !== 'revealed' ? (
+                <Badge variant={STATUS_VARIANT[p.status]}>{p.status}</Badge>
+              ) : null}
             </li>
           ))}
           {predictions.length === 0 ? (
@@ -186,14 +214,17 @@ export function Room({ roomKey, log }: { roomKey: string; log: LogState }) {
   return (
     <div className='flex h-screen'>
       <aside className='flex w-80 flex-col gap-4 overflow-y-auto border-r bg-muted p-4'>
-        <Badge variant={log.status === 'connected' ? 'default' : 'secondary'} className='w-fit'>
+        <Badge
+          variant={log.status === 'connected' ? 'default' : 'secondary'}
+          className={log.status === 'connected' ? 'w-fit bg-green-500 text-white' : 'w-fit'}
+        >
           {log.status}
         </Badge>
 
         <div className='space-y-2'>
           <Label>Room key (share this to invite)</Label>
           <p className='font-mono text-xs break-all rounded-md bg-background p-2'>{roomKey}</p>
-          <Button size='sm' variant='secondary' onClick={copy}>
+          <Button size='sm' onClick={copy}>
             Copy
           </Button>
         </div>

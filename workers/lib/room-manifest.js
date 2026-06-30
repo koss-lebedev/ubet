@@ -1,7 +1,8 @@
 'use strict'
 
-const { promises: fs } = require('fs')
-const path = require('path')
+const { isBare } = require('which-runtime')
+const { promises: fs } = isBare ? require('bare-fs') : require('fs')
+const path = isBare ? require('bare-path') : require('path')
 
 async function writeManifest (storeDir, { key, name }) {
   const manifestPath = path.join(storeDir, 'room.json')

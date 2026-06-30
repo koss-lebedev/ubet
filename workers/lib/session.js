@@ -79,7 +79,7 @@ class Session {
 
   async addMatch (teamA, teamB) {
     const id = randomNonce().slice(0, 16)
-    await this.log.addMatch(id, teamA, teamB, Date.now())
+    await this.log.addMatch(id, teamA.code, teamB.code, Date.now())
   }
 
   async commit (matchId, a, b) {

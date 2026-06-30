@@ -1,6 +1,8 @@
+import { toTeam } from '@/lib/countries'
+
 const WORKER_SPEC = '/workers/main.js'
 
-export type Team = { code: string; flag: string; name: string }
+export type Team = { code: string; alpha3: string; flag: string; name: string }
 
 export type Match = {
   id: string
@@ -87,7 +89,17 @@ export function onEvent(cb: (e: WorkerEvent) => void): () => void {
     } catch {
       return // ignore non-JSON control strings (updating/updated/Hello from worker)
     }
-    if (msg && typeof msg === 'object' && 'evt' in msg) cb(msg as WorkerEvent)
+    if (msg && typeof msg === 'object' && 'evt' in msg) {
+      const e = msg as WorkerEvent
+      if (e.evt === 'log-state') {
+        e.matches = e.matches.map((m) => ({
+          ...m,
+          teamA: typeof m.teamA === 'string' ? toTeam(m.teamA) : m.teamA,
+          teamB: typeof m.teamB === 'string' ? toTeam(m.teamB) : m.teamB,
+        }))
+      }
+      cb(e)
+    }
   })
 }
 
