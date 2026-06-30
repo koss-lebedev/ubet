@@ -28,60 +28,145 @@ async function pair () {
   return { host, joiner, destroy: async () => { s1.destroy(); s2.destroy(); await host.close(); await joiner.close() } }
 }
 
-test('commit -> lock -> reveal verifies on the host view', async (t) => {
-  const { host, joiner, destroy } = await pair()
+async function admit (host, joiner) {
   await pump(host, joiner, 6)
   await host.addWriter(joiner.localWriterKey, 'Lena')
   for (let i = 0; i < 14 && !joiner.writable; i++) await pump(host, joiner, 1)
-  t.ok(joiner.writable, 'joiner admitted as writer')
+}
+
+const BR = { code: 'BR', flag: '🇧🇷', name: 'Brazil' }
+const AR = { code: 'AR', flag: '🇦🇷', name: 'Argentina' }
+
+test('host can add a match; it is open', async (t) => {
+  const { host, destroy } = await pair()
+  await host.addMatch('m1', BR, AR, 1000)
+  await host.update()
+  const snap = await host.snapshot()
+  t.is(snap.matches.length, 1)
+  t.is(snap.matches[0].id, 'm1')
+  t.is(snap.matches[0].status, 'open')
+  t.alike(snap.matches[0].teamA, BR)
+  await destroy()
+})
+
+test('non-host add-match is ignored', async (t) => {
+  const { host, joiner, destroy } = await pair()
+  await admit(host, joiner)
+  await joiner.addMatch('rogue', BR, AR, 1000)
+  await pump(host, joiner)
+  t.is((await host.snapshot()).matches.length, 0)
+  await destroy()
+})
+
+test('matches are sorted by createdAt', async (t) => {
+  const { host, destroy } = await pair()
+  await host.addMatch('m2', BR, AR, 2000)
+  await host.addMatch('m1', AR, BR, 1000)
+  await host.update()
+  const ids = (await host.snapshot()).matches.map((m) => m.id)
+  t.alike(ids, ['m1', 'm2'])
+  await destroy()
+})
+
+test('commit -> lock -> reveal verifies, keyed per match+author', async (t) => {
+  const { host, joiner, destroy } = await pair()
+  await admit(host, joiner)
+  await host.addMatch('m1', BR, AR, 1000)
+  await pump(host, joiner)
 
   const nonce = randomNonce()
-  await joiner.commit('p1', commitHash('2-1', nonce), 'Lena')
+  await joiner.commit('m1', commitHash('2-1', nonce), 'Lena')
   await pump(host, joiner)
-  await host.lock()
+  await host.lockMatch('m1')
   await pump(host, joiner)
-  await joiner.reveal('p1', '2-1', nonce)
+  await joiner.reveal('m1', '2-1', nonce)
   await pump(host, joiner)
 
   const snap = await host.snapshot()
-  const p = snap.predictions.find((x) => x.id === 'p1')
-  t.is(snap.phase, 'locked')
+  t.is(snap.matches[0].status, 'locked')
+  const p = snap.predictions.m1.find((x) => x.author === joiner.localWriterKey)
   t.is(p.status, 'revealed')
-  t.is(p.pick, '2-1')
+  t.is(p.score, '2-1')
+  await destroy()
+})
+
+test('re-commit before lock overwrites the prediction', async (t) => {
+  const { host, joiner, destroy } = await pair()
+  await admit(host, joiner)
+  await host.addMatch('m1', BR, AR, 1000)
+  await pump(host, joiner)
+
+  const n1 = randomNonce()
+  const n2 = randomNonce()
+  await joiner.commit('m1', commitHash('1-0', n1), 'Lena')
+  await pump(host, joiner)
+  await joiner.commit('m1', commitHash('3-3', n2), 'Lena')
+  await pump(host, joiner)
+  await host.lockMatch('m1')
+  await pump(host, joiner)
+  await joiner.reveal('m1', '3-3', n2)
+  await pump(host, joiner)
+
+  const snap = await host.snapshot()
+  t.is(snap.predictions.m1.length, 1, 'still one prediction for the author')
+  t.is(snap.predictions.m1[0].score, '3-3')
   await destroy()
 })
 
 test('tampered reveal is marked invalid', async (t) => {
   const { host, joiner, destroy } = await pair()
-  await pump(host, joiner, 6)
-  await host.addWriter(joiner.localWriterKey, 'Lena')
-  for (let i = 0; i < 14 && !joiner.writable; i++) await pump(host, joiner, 1)
+  await admit(host, joiner)
+  await host.addMatch('m1', BR, AR, 1000)
+  await pump(host, joiner)
 
   const nonce = randomNonce()
-  await joiner.commit('p2', commitHash('2-1', nonce), 'Lena')
+  await joiner.commit('m1', commitHash('2-1', nonce), 'Lena')
   await pump(host, joiner)
-  await host.lock()
+  await host.lockMatch('m1')
   await pump(host, joiner)
-  await joiner.reveal('p2', '9-9', nonce) // wrong pick
+  await joiner.reveal('m1', '9-9', nonce)
   await pump(host, joiner)
 
-  const p = (await host.snapshot()).predictions.find((x) => x.id === 'p2')
+  const p = (await host.snapshot()).predictions.m1[0]
   t.is(p.status, 'invalid')
   await destroy()
 })
 
-test('commit after lock is ignored', async (t) => {
+test('commit on a locked match is ignored', async (t) => {
   const { host, joiner, destroy } = await pair()
-  await pump(host, joiner, 6)
-  await host.addWriter(joiner.localWriterKey, 'Lena')
-  for (let i = 0; i < 14 && !joiner.writable; i++) await pump(host, joiner, 1)
-
-  await host.lock()
+  await admit(host, joiner)
+  await host.addMatch('m1', BR, AR, 1000)
   await pump(host, joiner)
-  await joiner.commit('late', commitHash('1-0', randomNonce()), 'Lena')
+  await host.lockMatch('m1')
+  await pump(host, joiner)
+  await joiner.commit('m1', commitHash('1-0', randomNonce()), 'Lena')
   await pump(host, joiner)
 
-  const p = (await host.snapshot()).predictions.find((x) => x.id === 'late')
-  t.absent(p, 'commit after lock not recorded')
+  const snap = await host.snapshot()
+  t.absent(snap.predictions.m1, 'no prediction recorded after lock')
+  await destroy()
+})
+
+test('locking one match leaves others open', async (t) => {
+  const { host, destroy } = await pair()
+  await host.addMatch('m1', BR, AR, 1000)
+  await host.addMatch('m2', AR, BR, 2000)
+  await host.update()
+  await host.lockMatch('m1')
+  await host.update()
+  const byId = Object.fromEntries((await host.snapshot()).matches.map((m) => [m.id, m.status]))
+  t.is(byId.m1, 'locked')
+  t.is(byId.m2, 'open')
+  await destroy()
+})
+
+test('non-host lock is ignored', async (t) => {
+  const { host, joiner, destroy } = await pair()
+  await admit(host, joiner)
+  await host.addMatch('m1', BR, AR, 1000)
+  await pump(host, joiner)
+  await joiner.lockMatch('m1')
+  await pump(host, joiner)
+  t.is((await host.snapshot()).matches[0].status, 'open')
   await destroy()
 })
