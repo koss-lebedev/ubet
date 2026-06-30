@@ -1,5 +1,7 @@
 'use strict'
 
+const fs = require('fs/promises')
+const path = require('path')
 const Hyperswarm = require('hyperswarm')
 const Protomux = require('protomux')
 const c = require('compact-encoding')
@@ -10,15 +12,30 @@ const { randomNonce, commitHash } = require('./commit-reveal.js')
 
 const CONTROL_PROTOCOL = 'ubet/control/1'
 
+async function saveSecrets (secretsPath, secrets) {
+  const obj = {}
+  for (const [id, secret] of secrets) obj[id] = secret
+  await fs.writeFile(secretsPath, JSON.stringify(obj), 'utf-8')
+}
+
+async function loadSecrets (secretsPath, secrets) {
+  try {
+    const data = JSON.parse(await fs.readFile(secretsPath, 'utf-8'))
+    for (const [id, secret] of Object.entries(data)) secrets.set(id, secret)
+  } catch {}
+}
+
 function predictionsToReveal (secretIds, predictions) {
   const ids = new Set(secretIds)
   return predictions.filter((p) => p.status === 'committed' && ids.has(p.id)).map((p) => p.id)
 }
 
 class Session {
-  constructor ({ log, name }) {
+  constructor ({ log, name, storeDir }) {
     this.log = log
     this.name = name
+    this.storeDir = storeDir
+    this._secretsPath = path.join(storeDir, 'secrets.json')
     this.swarm = new Hyperswarm()
     this.secrets = new Map() // id -> { pick, nonce }
     this._revealed = new Set() // ids we have already appended a reveal for
@@ -35,6 +52,7 @@ class Session {
   get key () { return this.log.key }
 
   async start () {
+    await loadSecrets(this._secretsPath, this.secrets)
     await this.room.join(this.log.key)
     return this
   }
@@ -62,6 +80,11 @@ class Session {
     const nonce = randomNonce()
     this.secrets.set(id, { pick, nonce })
     await this.log.commit(id, commitHash(pick, nonce), this.name)
+    try {
+      await saveSecrets(this._secretsPath, this.secrets)
+    } catch (err) {
+      console.error('Failed to persist secrets:', err)
+    }
   }
 
   async lock () { await this.log.lock() }
@@ -101,12 +124,12 @@ class Session {
 
 async function createSession ({ name, storeDir }) {
   const log = await createLog(storeDir)
-  return new Session({ log, name })
+  return new Session({ log, name, storeDir })
 }
 
 async function joinSession ({ name, key, storeDir }) {
   const log = await openLog(storeDir, key)
-  return new Session({ log, name })
+  return new Session({ log, name, storeDir })
 }
 
-module.exports = { Session, createSession, joinSession, predictionsToReveal }
+module.exports = { Session, createSession, joinSession, predictionsToReveal, saveSecrets, loadSecrets }
