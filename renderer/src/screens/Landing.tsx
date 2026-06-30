@@ -49,8 +49,8 @@ export function Landing({
   }
 
   return (
-    <div className='fixed inset-0 flex items-center justify-center bg-background/80 p-6 backdrop-blur-sm'>
-      <Card className='w-full max-w-md'>
+    <div className='fixed inset-0 flex items-center justify-center bg-black/50 p-6 backdrop-blur-sm'>
+      <Card className='w-full max-w-md shadow-2xl'>
         <CardHeader>
           <CardTitle>Pear Prediction Pool</CardTitle>
           <CardDescription>Create a room and share the key, or join one.</CardDescription>

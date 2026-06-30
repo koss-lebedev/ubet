@@ -32,7 +32,7 @@ export function Room({ roomKey, log }: { roomKey: string; log: LogState }) {
 
   return (
     <div className='flex h-screen'>
-      <aside className='flex w-80 flex-col gap-4 overflow-y-auto border-r p-4'>
+      <aside className='flex w-80 flex-col gap-4 overflow-y-auto border-r bg-muted p-4'>
         <div className='flex gap-2'>
           <Badge variant={log.status === 'connected' ? 'default' : 'secondary'}>{log.status}</Badge>
           <Badge variant={log.phase === 'locked' ? 'destructive' : 'secondary'}>{log.phase}</Badge>
