@@ -49,7 +49,7 @@ export function Landing({
   }
 
   return (
-    <div className='fixed inset-0 flex items-center justify-center bg-black/50 p-6 backdrop-blur-sm'>
+    <div className='fixed inset-0 flex items-center justify-center landing-glow p-6 backdrop-blur-sm'>
       <Card className='w-full max-w-md shadow-2xl'>
         <CardHeader>
           <CardTitle>Pear Prediction Pool</CardTitle>
