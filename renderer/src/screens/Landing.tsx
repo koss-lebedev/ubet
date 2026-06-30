@@ -118,7 +118,7 @@ export function Landing({
                   onChange={(e) => setKey(e.target.value)}
                 />
               </div>
-              <Button className='w-full' variant='secondary' onClick={join}>
+              <Button className='w-full' onClick={join}>
                 Join room
               </Button>
             </TabsContent>

@@ -43,7 +43,9 @@ function AddMatch() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className='w-full'>Add match</Button>
+        <Button className='w-full' variant='secondary'>
+          Add match
+        </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
@@ -74,7 +76,12 @@ function AddMatch() {
               ))}
             </SelectContent>
           </Select>
-          <Button className='w-full' onClick={add} disabled={!a || !b || a === b}>
+          <Button
+            className='w-full'
+            variant='secondary'
+            onClick={add}
+            disabled={!a || !b || a === b}
+          >
             Add match
           </Button>
         </div>
@@ -224,7 +231,7 @@ export function Room({ roomKey, log }: { roomKey: string; log: LogState }) {
         <div className='space-y-2'>
           <Label>Room key (share this to invite)</Label>
           <p className='font-mono text-xs break-all rounded-md bg-background p-2'>{roomKey}</p>
-          <Button size='sm' onClick={copy}>
+          <Button size='sm' variant='secondary' onClick={copy}>
             Copy
           </Button>
         </div>
