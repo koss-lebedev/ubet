@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Dialog,
   DialogContent,
@@ -249,20 +250,31 @@ export function Room({ roomKey, log }: { roomKey: string; log: LogState }) {
 
       <main className='flex-1 overflow-y-auto p-6'>
         <h2 className='mb-4 text-lg font-semibold'>Matches</h2>
-        <div className='space-y-3'>
-          {log.matches.map((m) => (
-            <MatchCard
-              key={m.id}
-              match={m}
-              predictions={log.predictions[m.id] ?? []}
-              mine={log.mine[m.id]}
-              isHost={log.isHost}
-            />
-          ))}
-          {log.matches.length === 0 ? (
-            <p className='text-sm text-muted-foreground'>No matches yet.</p>
-          ) : null}
-        </div>
+        {log.matches.length === 0 ? (
+          <p className='text-sm text-muted-foreground'>No matches yet.</p>
+        ) : (
+          <Tabs defaultValue={log.matches[0].id}>
+            <div className='overflow-x-auto'>
+              <TabsList className='w-fit'>
+                {log.matches.map((m) => (
+                  <TabsTrigger key={m.id} value={m.id} className='font-mono whitespace-nowrap'>
+                    {m.teamA.alpha3} {m.teamA.flag} : {m.teamB.flag} {m.teamB.alpha3}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </div>
+            {log.matches.map((m) => (
+              <TabsContent key={m.id} value={m.id}>
+                <MatchCard
+                  match={m}
+                  predictions={log.predictions[m.id] ?? []}
+                  mine={log.mine[m.id]}
+                  isHost={log.isHost}
+                />
+              </TabsContent>
+            ))}
+          </Tabs>
+        )}
       </main>
     </div>
   )
