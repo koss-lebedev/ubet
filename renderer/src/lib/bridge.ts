@@ -18,11 +18,19 @@ export type LogState = {
   predictions: Prediction[]
 }
 
+export type RoomEntry = {
+  storeDir: string
+  key: string
+  name: string
+  createdAt: number
+}
+
 export type WorkerEvent =
   | { evt: 'room-ready'; key: string }
   | ({ evt: 'log-state' } & LogState)
   | { evt: 'room-left' }
   | { evt: 'error'; message: string }
+  | { evt: 'rooms-list'; rooms: RoomEntry[] }
 
 export type Command =
   | { cmd: 'create-room'; name: string }
@@ -31,6 +39,8 @@ export type Command =
   | { cmd: 'commit'; pick: string }
   | { cmd: 'lock' }
   | { cmd: 'reveal'; id: string }
+  | { cmd: 'list-rooms' }
+  | { cmd: 'rejoin-room'; storeDir: string; key: string; name: string }
 
 type Bridge = {
   pkg: () => { version: string }

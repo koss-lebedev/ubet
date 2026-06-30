@@ -4,6 +4,9 @@ const Corestore = require('corestore')
 const goodbye = require('graceful-goodbye')
 const FramedStream = require('framed-stream')
 const path = require('bare-path')
+const b4a = require('b4a')
+const crypto = require('hypercore-crypto')
+const { writeManifest, listManifests } = require('./lib/room-manifest.js')
 
 const { createSession, joinSession } = require('./lib/session.js')
 
@@ -91,15 +94,20 @@ pipe.on('data', async (data) => {
   try {
     if (msg.cmd === 'create-room') {
       await stopSession()
-      session = await createSession({ name: msg.name, storeDir: path.join(roomsDir(), 'host-' + Date.now()) })
+      const roomId = b4a.toString(crypto.randomBytes(16), 'hex')
+      const storeDir = path.join(roomsDir(), roomId)
+      session = await createSession({ name: msg.name, storeDir })
       wireState()
       await session.start()
+      await writeManifest(storeDir, { key: session.key, name: msg.name })
       sendEvent({ evt: 'room-ready', key: session.key })
     } else if (msg.cmd === 'join-room') {
       await stopSession()
-      session = await joinSession({ name: msg.name, key: msg.key, storeDir: path.join(roomsDir(), msg.key) })
+      const storeDir = path.join(roomsDir(), msg.key)
+      session = await joinSession({ name: msg.name, key: msg.key, storeDir })
       wireState()
       await session.start()
+      await writeManifest(storeDir, { key: msg.key, name: msg.name })
       sendEvent({ evt: 'room-ready', key: session.key })
     } else if (msg.cmd === 'leave-room') {
       await stopSession()
@@ -110,6 +118,15 @@ pipe.on('data', async (data) => {
       if (session) await session.lock()
     } else if (msg.cmd === 'reveal') {
       if (session) await session.reveal(msg.id)
+    } else if (msg.cmd === 'list-rooms') {
+      const rooms = await listManifests(roomsDir())
+      sendEvent({ evt: 'rooms-list', rooms })
+    } else if (msg.cmd === 'rejoin-room') {
+      await stopSession()
+      session = await joinSession({ name: msg.name, key: msg.key, storeDir: msg.storeDir })
+      wireState()
+      await session.start()
+      sendEvent({ evt: 'room-ready', key: session.key })
     }
   } catch (err) {
     sendEvent({ evt: 'error', message: err.message })
