@@ -254,7 +254,7 @@ export function Room({ roomKey, log }: { roomKey: string; log: LogState }) {
           <p className='text-sm text-muted-foreground'>No matches yet.</p>
         ) : (
           <Tabs defaultValue={log.matches[0].id}>
-            <div className='overflow-x-auto'>
+            <div className='overflow-x-auto tab-scroll-fade'>
               <TabsList className='w-fit'>
                 {log.matches.map((m) => (
                   <TabsTrigger key={m.id} value={m.id} className='font-mono whitespace-nowrap'>

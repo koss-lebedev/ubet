@@ -67,3 +67,13 @@
     radial-gradient(ellipse 60% 50% at 30% 20%, oklch(0.62 0.25 293 / 0.35), transparent 70%),
     radial-gradient(ellipse 60% 50% at 80% 85%, oklch(0.55 0.2 258 / 0.3), transparent 70%);
 }
+
+.tab-scroll-fade {
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(to right, transparent, black 24px, black calc(100% - 24px), transparent);
+  mask-image: linear-gradient(to right, transparent, black 24px, black calc(100% - 24px), transparent);
+}
+
+.tab-scroll-fade::-webkit-scrollbar {
+  display: none;
+}
