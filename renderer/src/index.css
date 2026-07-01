@@ -68,12 +68,15 @@
     radial-gradient(ellipse 60% 50% at 80% 85%, oklch(0.55 0.2 258 / 0.3), transparent 70%);
 }
 
-.tab-scroll-fade {
+.scrollbar-hide {
   scrollbar-width: none;
-  -webkit-mask-image: linear-gradient(to right, transparent, black 24px, black calc(100% - 24px), transparent);
-  mask-image: linear-gradient(to right, transparent, black 24px, black calc(100% - 24px), transparent);
 }
 
-.tab-scroll-fade::-webkit-scrollbar {
+.scrollbar-hide::-webkit-scrollbar {
   display: none;
+}
+
+.tab-scroll-fade {
+  -webkit-mask-image: linear-gradient(to right, transparent, black 24px, black calc(100% - 24px), transparent);
+  mask-image: linear-gradient(to right, transparent, black 24px, black calc(100% - 24px), transparent);
 }

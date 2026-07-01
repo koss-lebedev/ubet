@@ -14,6 +14,12 @@ export function pointsFor(tier: Tier): number {
   return POINTS[tier]
 }
 
+const TIER_BY_POINTS: Record<number, Tier> = { 4: 'exact', 3: 'diff', 2: 'tendency', 0: 'miss' }
+
+export function tierFromPoints(points: number): Tier {
+  return TIER_BY_POINTS[points] ?? 'miss'
+}
+
 export function gradePrediction(
   pred: { a: number; b: number },
   result: { a: number; b: number }
@@ -24,39 +30,34 @@ export function gradePrediction(
   return 'miss'
 }
 
-export type LeaderRow = {
-  authorName: string
-  points: number
-  exact: number
-  diff: number
-  tendency: number
-  miss: number
+export type LeaderboardTable = {
+  matches: Match[]
+  rows: { authorName: string; points: Record<string, number | null>; total: number }[]
 }
 
-export function leaderboard(
+export function leaderboardTable(
   matches: Match[],
   predictions: Record<string, MatchPrediction[]>
-): LeaderRow[] {
-  const rows = new Map<string, LeaderRow>()
-
-  for (const match of matches) {
-    if (!match.result) continue
-    for (const p of predictions[match.id] ?? []) {
-      if (p.status !== 'revealed' || !p.score) continue
-      const parsed = parseScore(p.score)
-      if (!parsed) continue
-      const tier = gradePrediction(parsed, match.result)
-      let row = rows.get(p.authorName)
-      if (!row) {
-        row = { authorName: p.authorName, points: 0, exact: 0, diff: 0, tendency: 0, miss: 0 }
-        rows.set(p.authorName, row)
-      }
-      row.points += pointsFor(tier)
-      row[tier]++
-    }
+): LeaderboardTable {
+  const authorNames = new Set<string>()
+  for (const list of Object.values(predictions)) {
+    for (const p of list) authorNames.add(p.authorName)
   }
 
-  return [...rows.values()].sort(
-    (a, b) => b.points - a.points || a.authorName.localeCompare(b.authorName)
-  )
+  const rows = [...authorNames].map((authorName) => {
+    const points: Record<string, number | null> = {}
+    let total = 0
+    for (const match of matches) {
+      const pred = (predictions[match.id] ?? []).find((p) => p.authorName === authorName)
+      const parsed = pred?.status === 'revealed' && pred.score ? parseScore(pred.score) : null
+      const value = match.result && parsed ? pointsFor(gradePrediction(parsed, match.result)) : null
+      points[match.id] = value
+      if (value !== null) total += value
+    }
+    return { authorName, points, total }
+  })
+
+  rows.sort((a, b) => b.total - a.total || a.authorName.localeCompare(b.authorName))
+
+  return { matches, rows }
 }

@@ -23,7 +23,13 @@ import { toast } from 'sonner'
 import { send, type LogState, type Match, type MatchPrediction, type Team } from '@/lib/bridge'
 import { COUNTRIES, flagOf, toTeam } from '@/lib/countries'
 import { computeConsensus, parseScore, type Consensus } from '@/lib/consensus'
-import { gradePrediction, leaderboard, pointsFor, type Tier } from '@/lib/grading'
+import {
+  gradePrediction,
+  leaderboardTable,
+  pointsFor,
+  tierFromPoints,
+  type Tier
+} from '@/lib/grading'
 
 const STATUS_VARIANT: Record<MatchPrediction['status'], 'secondary' | 'default' | 'destructive'> = {
   committed: 'secondary',
@@ -156,6 +162,13 @@ const TIER_VARIANT: Record<Tier, 'default' | 'secondary' | 'outline'> = {
   miss: 'outline'
 }
 
+const TIER_TEXT_CLASS: Record<Tier, string> = {
+  exact: 'text-primary font-semibold',
+  diff: 'text-[oklch(0.68_0.15_250)] font-semibold',
+  tendency: 'text-foreground',
+  miss: 'text-muted-foreground'
+}
+
 function ResultEntry({ match }: { match: Match }) {
   const [a, setA] = useState(match.result ? String(match.result.a) : '')
   const [b, setB] = useState(match.result ? String(match.result.b) : '')
@@ -201,7 +214,7 @@ function ResultEntry({ match }: { match: Match }) {
 }
 
 function Leaderboard({ log }: { log: LogState }) {
-  const rows = leaderboard(log.matches, log.predictions)
+  const table = leaderboardTable(log.matches, log.predictions)
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -213,28 +226,65 @@ function Leaderboard({ log }: { log: LogState }) {
         <DialogHeader>
           <DialogTitle>Leaderboard</DialogTitle>
         </DialogHeader>
-        {rows.length === 0 ? (
-          <p className='text-sm text-muted-foreground'>No results yet.</p>
+        {table.matches.length === 0 ? (
+          <p className='text-sm text-muted-foreground'>No matches yet.</p>
         ) : (
-          <ul className='space-y-1'>
-            {rows.map((row, i) => (
-              <li
-                key={row.authorName}
-                className='flex items-center justify-between gap-3 rounded-md bg-muted/50 px-3 py-2 text-sm'
-              >
-                <span className='flex items-center gap-2'>
-                  <span className='text-muted-foreground font-mono'>{i + 1}</span>
-                  <span className='font-medium'>{row.authorName}</span>
-                </span>
-                <span className='flex items-center gap-3'>
-                  <span className='text-muted-foreground text-xs'>
-                    {row.exact}·{row.diff}·{row.tendency}·{row.miss}
-                  </span>
-                  <span className='font-semibold'>{row.points}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
+          <div className='overflow-x-auto scrollbar-hide'>
+            <table className='w-full text-sm'>
+              <thead>
+                <tr className='border-b'>
+                  <th className='bg-background sticky left-0 px-4 py-3 text-left font-medium'>
+                    Player
+                  </th>
+                  {table.matches.map((m) => (
+                    <th key={m.id} className='px-4 py-3 text-center font-mono whitespace-nowrap'>
+                      {m.teamA.flag}/{m.teamB.flag}
+                    </th>
+                  ))}
+                  <th className='bg-background sticky right-0 px-4 py-3 text-right font-medium'>
+                    Total
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {table.rows.map((row, i) => (
+                  <tr key={row.authorName} className='border-b last:border-0'>
+                    <td className='bg-background sticky left-0 px-4 py-3 font-medium whitespace-nowrap'>
+                      <span className='text-muted-foreground font-mono'>{i + 1}</span>{' '}
+                      {row.authorName}
+                    </td>
+                    {table.matches.map((m) => {
+                      const points = row.points[m.id]
+                      return (
+                        <td
+                          key={m.id}
+                          className={
+                            'px-4 py-3 text-center' +
+                            (points === null ? ' text-muted-foreground' : ` ${TIER_TEXT_CLASS[tierFromPoints(points)]}`)
+                          }
+                        >
+                          {points === null ? '–' : points}
+                        </td>
+                      )
+                    })}
+                    <td className='bg-background sticky right-0 px-4 py-3 text-right font-semibold'>
+                      {row.total}
+                    </td>
+                  </tr>
+                ))}
+                {table.rows.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={table.matches.length + 2}
+                      className='text-muted-foreground px-2 py-3 text-center'
+                    >
+                      No predictions yet.
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
         )}
       </DialogContent>
     </Dialog>
@@ -448,7 +498,7 @@ export function Room({ roomKey, log }: { roomKey: string; log: LogState }) {
           <p className='text-sm text-muted-foreground'>No matches yet.</p>
         ) : (
           <Tabs defaultValue={log.matches[0].id}>
-            <div className='overflow-x-auto tab-scroll-fade'>
+            <div className='overflow-x-auto scrollbar-hide tab-scroll-fade'>
               <TabsList className='h-auto w-fit gap-2 bg-transparent p-1'>
                 {log.matches.map((m) => (
                   <TabsTrigger
