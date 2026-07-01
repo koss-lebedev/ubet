@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -19,7 +20,12 @@ export function Landing({
 }) {
   const [name, setName] = useState('')
   const [key, setKey] = useState('')
+  const [pendingAction, setPendingAction] = useState<string | null>(null)
   const hasRooms = rooms.length > 0
+
+  useEffect(() => {
+    if (error) setPendingAction(null)
+  }, [error])
 
   function create() {
     if (!name.trim()) {
@@ -27,6 +33,7 @@ export function Landing({
       return
     }
     onError('')
+    setPendingAction('create')
     send({ cmd: 'create-room', name: name.trim() })
   }
 
@@ -40,11 +47,13 @@ export function Landing({
       return
     }
     onError('')
+    setPendingAction('join')
     send({ cmd: 'join-room', name: name.trim(), key: key.trim() })
   }
 
   function rejoin(room: RoomEntry) {
     onError('')
+    setPendingAction(`rejoin:${room.storeDir}`)
     send({ cmd: 'rejoin-room', storeDir: room.storeDir, key: room.key, name: room.name })
   }
 
@@ -71,9 +80,14 @@ export function Landing({
                       <Button
                         className='w-full justify-between font-mono text-xs'
                         variant='ghost'
+                        disabled={pendingAction !== null}
                         onClick={() => rejoin(room)}
                       >
-                        <span>{room.key.slice(0, 8)}…</span>
+                        {pendingAction === `rejoin:${room.storeDir}` ? (
+                          <Loader2 className='size-4 animate-spin' />
+                        ) : (
+                          <span>{room.key.slice(0, 8)}…</span>
+                        )}
                         <span className='text-muted-foreground font-sans'>
                           {room.name} · {new Date(room.createdAt).toLocaleDateString()}
                         </span>
@@ -94,7 +108,8 @@ export function Landing({
                   onChange={(e) => setName(e.target.value)}
                 />
               </div>
-              <Button className='w-full' onClick={create}>
+              <Button className='w-full' disabled={pendingAction !== null} onClick={create}>
+                {pendingAction === 'create' ? <Loader2 className='size-4 animate-spin' /> : null}
                 Create room
               </Button>
             </TabsContent>
@@ -118,7 +133,8 @@ export function Landing({
                   onChange={(e) => setKey(e.target.value)}
                 />
               </div>
-              <Button className='w-full' onClick={join}>
+              <Button className='w-full' disabled={pendingAction !== null} onClick={join}>
+                {pendingAction === 'join' ? <Loader2 className='size-4 animate-spin' /> : null}
                 Join room
               </Button>
             </TabsContent>
