@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
+import { LogOut, Plus, UserPlus } from 'lucide-react'
 import { toast } from 'sonner'
 import { send, type LogState, type Match, type MatchPrediction } from '@/lib/bridge'
 import { COUNTRIES, flagOf, toTeam } from '@/lib/countries'
@@ -44,8 +45,8 @@ function AddMatch() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className='w-full' variant='secondary'>
-          Add match
+        <Button size='icon' variant='glass' className='size-11' title='Add match'>
+          <Plus className='size-5' />
         </Button>
       </DialogTrigger>
       <DialogContent>
@@ -221,30 +222,32 @@ export function Room({ roomKey, log }: { roomKey: string; log: LogState }) {
 
   return (
     <div className='flex h-screen'>
-      <aside className='flex w-80 flex-col gap-4 overflow-y-auto border-r bg-muted p-4'>
-        <Badge
-          variant={log.status === 'connected' ? 'default' : 'secondary'}
-          className={log.status === 'connected' ? 'w-fit bg-green-500 text-white' : 'w-fit'}
-        >
-          {log.status}
-        </Badge>
+      <aside className='flex w-16 flex-col items-center gap-3 overflow-y-auto border-r bg-muted p-2'>
+        <div
+          className={`size-2.5 rounded-full ${log.status === 'connected' ? 'bg-green-500' : 'bg-muted-foreground'}`}
+          title={log.status}
+        />
 
-        <div className='space-y-2'>
-          <Label>Room key (share this to invite)</Label>
-          <p className='font-mono text-xs break-all rounded-md bg-background p-2'>{roomKey}</p>
-          <Button size='sm' variant='secondary' onClick={copy}>
-            Copy
-          </Button>
-        </div>
+        <Button
+          size='icon'
+          variant='glass'
+          className='size-11'
+          title='Invite (copy room key)'
+          onClick={copy}
+        >
+          <UserPlus className='size-5' />
+        </Button>
 
         {log.isHost ? <AddMatch /> : null}
 
         <Button
-          className='mt-auto w-full'
-          variant='outline'
+          size='icon'
+          className='mt-auto size-11'
+          variant='glass'
+          title='Leave'
           onClick={() => send({ cmd: 'leave-room' })}
         >
-          Leave
+          <LogOut className='size-5' />
         </Button>
       </aside>
 
@@ -255,12 +258,12 @@ export function Room({ roomKey, log }: { roomKey: string; log: LogState }) {
         ) : (
           <Tabs defaultValue={log.matches[0].id}>
             <div className='overflow-x-auto tab-scroll-fade'>
-              <TabsList className='h-auto w-fit gap-2 p-1'>
+              <TabsList className='h-auto w-fit gap-2 bg-transparent p-1'>
                 {log.matches.map((m) => (
                   <TabsTrigger
                     key={m.id}
                     value={m.id}
-                    className='h-auto px-4 py-2 font-mono whitespace-nowrap'
+                    className='data-[state=active]:bg-primary data-[state=active]:text-primary-foreground h-auto px-4 py-2 font-mono whitespace-nowrap'
                   >
                     {m.teamA.alpha3} {m.teamA.flag} / {m.teamB.flag} {m.teamB.alpha3}
                   </TabsTrigger>
