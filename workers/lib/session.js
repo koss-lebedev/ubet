@@ -96,6 +96,8 @@ class Session {
 
   async lockMatch (matchId) { await this.log.lockMatch(matchId) }
 
+  async setResult (matchId, a, b) { await this.log.setResult(matchId, a, b) }
+
   onState (cb) { this._onState = cb; this._emit() }
 
   async _emit () {

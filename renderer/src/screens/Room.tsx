@@ -18,11 +18,12 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
-import { LogOut, Plus, UserPlus } from 'lucide-react'
+import { LogOut, Plus, Trophy, UserPlus } from 'lucide-react'
 import { toast } from 'sonner'
 import { send, type LogState, type Match, type MatchPrediction, type Team } from '@/lib/bridge'
 import { COUNTRIES, flagOf, toTeam } from '@/lib/countries'
-import { computeConsensus, type Consensus } from '@/lib/consensus'
+import { computeConsensus, parseScore, type Consensus } from '@/lib/consensus'
+import { gradePrediction, leaderboard, pointsFor, type Tier } from '@/lib/grading'
 
 const STATUS_VARIANT: Record<MatchPrediction['status'], 'secondary' | 'default' | 'destructive'> = {
   committed: 'secondary',
@@ -141,6 +142,105 @@ function dash(score: string): string {
   return score.replace('-', '–')
 }
 
+const TIER_LABEL: Record<Tier, string> = {
+  exact: 'Exact',
+  diff: 'Diff',
+  tendency: 'Tendency',
+  miss: 'Miss'
+}
+
+const TIER_VARIANT: Record<Tier, 'default' | 'secondary' | 'outline'> = {
+  exact: 'default',
+  diff: 'secondary',
+  tendency: 'outline',
+  miss: 'outline'
+}
+
+function ResultEntry({ match }: { match: Match }) {
+  const [a, setA] = useState(match.result ? String(match.result.a) : '')
+  const [b, setB] = useState(match.result ? String(match.result.b) : '')
+
+  function submit() {
+    const na = Number(a)
+    const nb = Number(b)
+    if (!Number.isInteger(na) || !Number.isInteger(nb) || na < 0 || nb < 0) {
+      toast('Enter whole numbers for both scores')
+      return
+    }
+    send({ cmd: 'set-result', matchId: match.id, a: na, b: nb })
+  }
+
+  return (
+    <div className='flex items-end gap-2 rounded-md border border-dashed p-3'>
+      <div className='space-y-1'>
+        <Label className='text-xs'>Result {match.teamA.flag}</Label>
+        <Input
+          type='number'
+          min={0}
+          className='w-16'
+          value={a}
+          onChange={(e) => setA(e.target.value)}
+        />
+      </div>
+      <span className='pb-2'>–</span>
+      <div className='space-y-1'>
+        <Label className='text-xs'>{match.teamB.flag}</Label>
+        <Input
+          type='number'
+          min={0}
+          className='w-16'
+          value={b}
+          onChange={(e) => setB(e.target.value)}
+        />
+      </div>
+      <Button className='ml-auto' variant='secondary' onClick={submit}>
+        {match.result ? 'Update result' : 'Submit result'}
+      </Button>
+    </div>
+  )
+}
+
+function Leaderboard({ log }: { log: LogState }) {
+  const rows = leaderboard(log.matches, log.predictions)
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button size='icon' variant='glass' className='size-11' title='Leaderboard'>
+          <Trophy className='size-5' />
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Leaderboard</DialogTitle>
+        </DialogHeader>
+        {rows.length === 0 ? (
+          <p className='text-sm text-muted-foreground'>No results yet.</p>
+        ) : (
+          <ul className='space-y-1'>
+            {rows.map((row, i) => (
+              <li
+                key={row.authorName}
+                className='flex items-center justify-between gap-3 rounded-md bg-muted/50 px-3 py-2 text-sm'
+              >
+                <span className='flex items-center gap-2'>
+                  <span className='text-muted-foreground font-mono'>{i + 1}</span>
+                  <span className='font-medium'>{row.authorName}</span>
+                </span>
+                <span className='flex items-center gap-3'>
+                  <span className='text-muted-foreground text-xs'>
+                    {row.exact}·{row.diff}·{row.tendency}·{row.miss}
+                  </span>
+                  <span className='font-semibold'>{row.points}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 function MatchConsensus({
   consensus,
   teamA,
@@ -241,6 +341,15 @@ function MatchCard({
         </div>
       </div>
 
+      {match.result ? (
+        <div className='flex flex-col items-center gap-0.5'>
+          <span className='text-muted-foreground text-xs font-medium tracking-widest'>RESULT</span>
+          <span className='font-mono text-2xl font-semibold'>
+            {match.result.a}–{match.result.b}
+          </span>
+        </div>
+      ) : null}
+
       {match.status === 'open' ? (
         <>
           <ScoreEntry key={match.id} match={match} mine={mine} />
@@ -252,6 +361,7 @@ function MatchCard({
         </>
       ) : (
         <>
+          {isHost ? <ResultEntry key={`result-${match.id}`} match={match} /> : null}
           {(() => {
             const consensus = computeConsensus(predictions)
             return consensus.revealedCount >= 2 ? (
@@ -259,17 +369,26 @@ function MatchCard({
             ) : null
           })()}
           <ul className='space-y-1'>
-            {predictions.map((p) => (
-              <li key={p.author} className='flex items-center justify-between gap-2 text-sm'>
-                <span>
-                  {p.authorName}
-                  {p.status === 'revealed' ? <span className='font-mono'> {p.score}</span> : null}
-                </span>
-                {p.status !== 'revealed' ? (
-                  <Badge variant={STATUS_VARIANT[p.status]}>{p.status}</Badge>
-                ) : null}
-              </li>
-            ))}
+            {predictions.map((p) => {
+              const parsed = p.status === 'revealed' && p.score ? parseScore(p.score) : null
+              const tier: Tier | null =
+                match.result && parsed ? gradePrediction(parsed, match.result) : null
+              return (
+                <li key={p.author} className='flex items-center justify-between gap-2 text-sm'>
+                  <span>
+                    {p.authorName}
+                    {p.status === 'revealed' ? <span className='font-mono'> {p.score}</span> : null}
+                  </span>
+                  {tier ? (
+                    <Badge variant={TIER_VARIANT[tier]}>
+                      {TIER_LABEL[tier]} +{pointsFor(tier)}
+                    </Badge>
+                  ) : p.status !== 'revealed' ? (
+                    <Badge variant={STATUS_VARIANT[p.status]}>{p.status}</Badge>
+                  ) : null}
+                </li>
+              )
+            })}
             {predictions.length === 0 ? (
               <li className='text-sm text-muted-foreground'>No predictions.</li>
             ) : null}
@@ -309,6 +428,8 @@ export function Room({ roomKey, log }: { roomKey: string; log: LogState }) {
         </Button>
 
         {log.isHost ? <AddMatch /> : null}
+
+        <Leaderboard log={log} />
 
         <Button
           size='icon'

@@ -10,6 +10,7 @@ export type Match = {
   teamB: Team
   status: 'open' | 'locked'
   createdAt: number
+  result?: { a: number; b: number }
 }
 
 export type MatchPrediction = {
@@ -49,6 +50,7 @@ export type Command =
   | { cmd: 'leave-room' }
   | { cmd: 'add-match'; teamA: Team; teamB: Team }
   | { cmd: 'lock-match'; matchId: string }
+  | { cmd: 'set-result'; matchId: string; a: number; b: number }
   | { cmd: 'commit'; matchId: string; a: number; b: number }
   | { cmd: 'list-rooms' }
   | { cmd: 'rejoin-room'; storeDir: string; key: string; name: string }

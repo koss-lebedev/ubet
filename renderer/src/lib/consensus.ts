@@ -18,19 +18,19 @@ export type Consensus = {
 
 type Revealed = { authorName: string; score: string; a: number; b: number; outcome: Outcome }
 
-function parseScore(score: string): { a: number; b: number } | null {
+export function classify(a: number, b: number): Outcome {
+  if (a > b) return 'first'
+  if (a < b) return 'second'
+  return 'draw'
+}
+
+export function parseScore(score: string): { a: number; b: number } | null {
   const parts = score.split('-')
   if (parts.length !== 2) return null
   const a = Number(parts[0])
   const b = Number(parts[1])
   if (!Number.isInteger(a) || !Number.isInteger(b) || a < 0 || b < 0) return null
   return { a, b }
-}
-
-function classify(a: number, b: number): Outcome {
-  if (a > b) return 'first'
-  if (a < b) return 'second'
-  return 'draw'
 }
 
 function round1(n: number): number {

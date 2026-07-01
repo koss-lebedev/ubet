@@ -58,6 +58,11 @@ class PredictionLog {
         const match = viewValue(await view.get('match/' + v.matchId))
         if (!match) continue
         await view.put('match/' + v.matchId, { ...match, status: 'locked' })
+      } else if (v.type === 'set-result') {
+        if (from !== hostKey) continue
+        const match = viewValue(await view.get('match/' + v.matchId))
+        if (!match || match.status !== 'locked') continue
+        await view.put('match/' + v.matchId, { ...match, result: { a: v.a, b: v.b } })
       } else if (v.type === 'reveal') {
         const match = viewValue(await view.get('match/' + v.matchId))
         const pred = viewValue(await view.get('pred/' + v.matchId + '/' + from))
@@ -73,6 +78,7 @@ class PredictionLog {
   async addMatch (id, teamA, teamB, createdAt) { await this.base.append({ type: 'add-match', id, teamA, teamB, createdAt }) }
   async commit (matchId, hash, name) { await this.base.append({ type: 'commit', matchId, hash, name }) }
   async lockMatch (matchId) { await this.base.append({ type: 'lock', matchId }) }
+  async setResult (matchId, a, b) { await this.base.append({ type: 'set-result', matchId, a, b }) }
   async reveal (matchId, score, nonce) { await this.base.append({ type: 'reveal', matchId, score, nonce }) }
 
   onUpdate (cb) { this._onUpdate = cb }

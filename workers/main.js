@@ -117,6 +117,8 @@ pipe.on('data', async (data) => {
       if (session) await session.addMatch(msg.teamA, msg.teamB)
     } else if (msg.cmd === 'lock-match') {
       if (session) await session.lockMatch(msg.matchId)
+    } else if (msg.cmd === 'set-result') {
+      if (session) await session.setResult(msg.matchId, msg.a, msg.b)
     } else if (msg.cmd === 'commit') {
       if (session) await session.commit(msg.matchId, msg.a, msg.b)
     } else if (msg.cmd === 'list-rooms') {
