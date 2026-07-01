@@ -98,6 +98,8 @@ class Session {
 
   async setResult (matchId, a, b) { await this.log.setResult(matchId, a, b) }
 
+  async sendMessage (matchId, text) { await this.log.chat(matchId, text, this.name) }
+
   onState (cb) { this._onState = cb; this._emit() }
 
   async _emit () {

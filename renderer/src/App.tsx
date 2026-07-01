@@ -6,10 +6,12 @@ import { Room } from '@/screens/Room'
 const EMPTY: LogState = {
   matches: [],
   predictions: {},
+  messages: {},
   mine: {},
   host: null,
   isHost: false,
   writable: false,
+  localAuthor: '',
   status: 'connecting'
 }
 

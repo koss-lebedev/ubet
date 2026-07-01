@@ -21,6 +21,7 @@ import {
 import { LogOut, Plus, Trophy, UserPlus } from 'lucide-react'
 import { toast } from 'sonner'
 import { send, type LogState, type Match, type MatchPrediction, type Team } from '@/lib/bridge'
+import { MatchChat } from '@/components/MatchChat'
 import { COUNTRIES, flagOf, toTeam } from '@/lib/countries'
 import { computeConsensus, parseScore, type Consensus } from '@/lib/consensus'
 import {
@@ -501,13 +502,13 @@ export function Room({ roomKey, log }: { roomKey: string; log: LogState }) {
         </Button>
       </aside>
 
-      <main className='flex-1 overflow-y-auto p-6'>
+      <main className='flex flex-1 flex-col overflow-hidden p-6'>
         <h2 className='mb-4 text-lg font-semibold'>Matches</h2>
         {log.matches.length === 0 ? (
           <p className='text-sm text-muted-foreground'>No matches yet.</p>
         ) : (
-          <Tabs defaultValue={log.matches[0].id}>
-            <div className='overflow-x-auto scrollbar-hide tab-scroll-fade'>
+          <Tabs defaultValue={log.matches[0].id} className='flex flex-1 flex-col overflow-hidden'>
+            <div className='shrink-0 overflow-x-auto scrollbar-hide tab-scroll-fade'>
               <TabsList className='h-auto w-fit gap-2 bg-transparent p-1'>
                 {log.matches.map((m) => (
                   <TabsTrigger
@@ -521,13 +522,24 @@ export function Room({ roomKey, log }: { roomKey: string; log: LogState }) {
               </TabsList>
             </div>
             {log.matches.map((m) => (
-              <TabsContent key={m.id} value={m.id}>
-                <MatchCard
-                  match={m}
-                  predictions={log.predictions[m.id] ?? []}
-                  mine={log.mine[m.id]}
-                  isHost={log.isHost}
-                />
+              <TabsContent key={m.id} value={m.id} className='overflow-hidden'>
+                <div className='grid h-full grid-cols-[minmax(0,1fr)_minmax(0,420px)] gap-6 overflow-hidden'>
+                  <div className='overflow-y-auto pr-1'>
+                    <MatchCard
+                      match={m}
+                      predictions={log.predictions[m.id] ?? []}
+                      mine={log.mine[m.id]}
+                      isHost={log.isHost}
+                    />
+                  </div>
+                  <MatchChat
+                    match={m}
+                    predictions={log.predictions[m.id] ?? []}
+                    messages={log.messages[m.id] ?? []}
+                    writable={log.writable}
+                    localAuthor={log.localAuthor}
+                  />
+                </div>
               </TabsContent>
             ))}
           </Tabs>

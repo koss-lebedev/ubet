@@ -10,75 +10,26 @@ Each room is backed by an Autobase log. Every participant appends signed JSON en
 
 ### Entry types
 
-All entries share a `type` discriminator field.
+All entries share a `type` discriminator field. Entries marked **host only** are ignored unless appended from the room's host key.
 
-#### `init`
+| `type` | Appended by | When | Payload (besides `type`) |
+|--------|-------------|------|--------------------------|
+| `init` | Host | Once, at room creation | `host` |
+| `add-writer` | Host | Admitting a participant into the multi-writer set | `key`, `name` |
+| `add-match` | Host only | Registering a new match | `id`, `teamA`, `teamB`, `createdAt` |
+| `commit` | Participant | Locking in a hidden prediction while the match is `open` | `matchId`, `hash`, `name`, `createdAt` |
+| `lock` | Host only | Closing a match to new predictions | `matchId`, `createdAt` |
+| `set-result` | Host only | Recording/correcting the final score of a `locked` match | `matchId`, `a`, `b`, `createdAt` |
+| `reveal` | Participant | Auto-appended once the match is `locked`, disclosing score + nonce | `matchId`, `score`, `nonce` |
+| `chat` | Participant | Posting a message to a match's chat thread | `matchId`, `text`, `name`, `createdAt` |
 
-Appended once by the host when a room is created.
+Notes:
 
-```json
-{ "type": "init", "host": "<writer-key-hex>" }
-```
-
-#### `add-writer`
-
-Appended by the host to admit a new participant into the multi-writer set.
-
-```json
-{ "type": "add-writer", "key": "<writer-key-hex>", "name": "<display-name>" }
-```
-
-#### `add-match`
-
-Appended by the host to register a new match. Only accepted from the host key.
-
-```json
-{
-  "type": "add-match",
-  "id": "<16-char-hex>",
-  "teamA": "AR",
-  "teamB": "BR",
-  "createdAt": 1719700000000
-}
-```
-
-`teamA` and `teamB` are ISO 3166-1 alpha-2 codes. Display names, alpha-3 codes, and flag emoji are backfilled from the countries catalog on the renderer side.
-
-#### `commit`
-
-Appended by a participant to lock in a prediction before the match is sealed. The actual score is hidden behind a hash commitment.
-
-```json
-{
-  "type": "commit",
-  "matchId": "<16-char-hex>",
-  "hash": "<blake2b-hex>",
-  "name": "<display-name>"
-}
-```
-
-`hash = BLAKE2b(score + '\n' + nonce)` where `score` is `"<a>-<b>"` (e.g. `"2-1"`) and `nonce` is 32 random bytes encoded as hex.
-
-#### `lock`
-
-Appended by the host to close a match to new predictions. Only accepted from the host key.
-
-```json
-{ "type": "lock", "matchId": "<16-char-hex>" }
-```
-
-#### `reveal`
-
-Appended automatically by each participant once their match is locked, disclosing the score and nonce used at commit time. The log verifies the hash before marking the prediction valid.
-
-```json
-{
-  "type": "reveal",
-  "matchId": "<16-char-hex>",
-  "score": "2-1",
-  "nonce": "<64-char-hex>"
-}
-```
+- `id` is a 16-char hex string; `matchId` references it.
+- `teamA` / `teamB` are ISO 3166-1 alpha-2 codes. Display names, alpha-3 codes, and flag emoji are backfilled from the countries catalog on the renderer side.
+- `hash = BLAKE2b(score + '\n' + nonce)` where `score` is `"<a>-<b>"` (e.g. `"2-1"`) and `nonce` is 32 random bytes encoded as hex. `reveal` is verified against the earlier `commit` hash before the prediction is marked valid.
+- `createdAt` is a wall-clock epoch-millis timestamp supplied by the writer; used to order the chat feed and its derived system events.
+- `chat.text` is trimmed and capped at 2000 characters; empty or over-long messages are dropped, as are entries referencing an unknown `matchId`.
 
 ---
 
@@ -89,9 +40,11 @@ The `apply` function reduces the linearised log into a Hyperbee key/value store:
 | Key | Value |
 |-----|-------|
 | `meta/host` | `"<writer-key-hex>"` |
+| `meta/chatSeq` | `<number>` — monotonic counter giving chat messages a total order |
 | `writer/<key>` | `{ "name": "<display-name>" }` |
-| `match/<id>` | `{ "id", "teamA", "teamB", "status": "open"\|"locked", "createdAt" }` |
-| `pred/<matchId>/<author-key>` | `{ "matchId", "author", "authorName", "hash", "status": "committed"\|"revealed"\|"invalid", "score"? }` |
+| `match/<id>` | `{ "id", "teamA", "teamB", "status": "open"\|"locked", "createdAt", "lockedAt"?, "result"?: { "a", "b" }, "resultAt"? }` |
+| `pred/<matchId>/<author-key>` | `{ "matchId", "author", "authorName", "hash", "status": "committed"\|"revealed"\|"invalid", "score"?, "committedAt" }` |
+| `chat/<matchId>/<padded-seq>` | `{ "matchId", "author", "authorName", "text", "createdAt", "seq" }` |
 
 ---
 

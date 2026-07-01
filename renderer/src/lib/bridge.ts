@@ -10,6 +10,8 @@ export type Match = {
   teamB: Team
   status: 'open' | 'locked'
   createdAt: number
+  lockedAt?: number
+  resultAt?: number
   result?: { a: number; b: number }
 }
 
@@ -18,15 +20,26 @@ export type MatchPrediction = {
   authorName: string
   status: 'committed' | 'revealed' | 'invalid'
   score?: string
+  committedAt?: number
+}
+
+export type ChatMessage = {
+  author: string
+  authorName: string
+  text: string
+  createdAt: number
+  seq: number
 }
 
 export type LogState = {
   matches: Match[]
   predictions: Record<string, MatchPrediction[]>
+  messages: Record<string, ChatMessage[]>
   mine: Record<string, { a: number; b: number }>
   host: string | null
   isHost: boolean
   writable: boolean
+  localAuthor: string
   status: 'connecting' | 'connected'
 }
 
@@ -52,6 +65,7 @@ export type Command =
   | { cmd: 'lock-match'; matchId: string }
   | { cmd: 'set-result'; matchId: string; a: number; b: number }
   | { cmd: 'commit'; matchId: string; a: number; b: number }
+  | { cmd: 'send-message'; matchId: string; text: string }
   | { cmd: 'list-rooms' }
   | { cmd: 'rejoin-room'; storeDir: string; key: string; name: string }
 

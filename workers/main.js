@@ -34,10 +34,12 @@ function wireState () {
     evt: 'log-state',
     matches: s.matches,
     predictions: s.predictions,
+    messages: s.messages,
     mine: s.mine,
     host: s.host,
     isHost: s.isHost,
     writable: s.writable,
+    localAuthor: s.localAuthor,
     status: s.status
   }))
 }
@@ -121,6 +123,8 @@ pipe.on('data', async (data) => {
       if (session) await session.setResult(msg.matchId, msg.a, msg.b)
     } else if (msg.cmd === 'commit') {
       if (session) await session.commit(msg.matchId, msg.a, msg.b)
+    } else if (msg.cmd === 'send-message') {
+      if (session) await session.sendMessage(msg.matchId, msg.text)
     } else if (msg.cmd === 'list-rooms') {
       const rooms = await listManifests(roomsDir())
       sendEvent({ evt: 'rooms-list', rooms })

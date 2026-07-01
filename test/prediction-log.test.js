@@ -170,3 +170,72 @@ test('non-host lock is ignored', async (t) => {
   t.is((await host.snapshot()).matches[0].status, 'open')
   await destroy()
 })
+
+test('chat messages replicate and land in snapshot in order', async (t) => {
+  const { host, joiner, destroy } = await pair()
+  await admit(host, joiner)
+  await host.addMatch('m1', BR, AR, 1000)
+  await pump(host, joiner)
+
+  await host.chat('m1', 'hello', 'Ada', 1100)
+  await pump(host, joiner)
+  await joiner.chat('m1', 'hi there', 'Lena', 1200)
+  await pump(host, joiner)
+
+  for (const log of [host, joiner]) {
+    const msgs = (await log.snapshot()).messages.m1
+    t.is(msgs.length, 2)
+    t.alike(msgs.map((m) => m.text), ['hello', 'hi there'])
+    t.alike(msgs.map((m) => m.authorName), ['Ada', 'Lena'])
+    t.ok(msgs[0].seq < msgs[1].seq, 'seq is monotonic')
+  }
+  await destroy()
+})
+
+test('timestamps populate for commit, lock, set-result', async (t) => {
+  const { host, joiner, destroy } = await pair()
+  await admit(host, joiner)
+  await host.addMatch('m1', BR, AR, 1000)
+  await pump(host, joiner)
+  await joiner.commit('m1', commitHash('2-1', randomNonce()), 'Lena', 1500)
+  await pump(host, joiner)
+  await host.lockMatch('m1', 1600)
+  await pump(host, joiner)
+  await host.setResult('m1', 2, 1, 1700)
+  await pump(host, joiner)
+
+  const snap = await host.snapshot()
+  t.is(snap.matches[0].lockedAt, 1600)
+  t.is(snap.matches[0].resultAt, 1700)
+  t.is(snap.predictions.m1[0].committedAt, 1500)
+  await destroy()
+})
+
+test('chat for unknown match is ignored', async (t) => {
+  const { host, destroy } = await pair()
+  await host.chat('nope', 'ghost', 'Ada', 1100)
+  await host.update()
+  t.absent((await host.snapshot()).messages.nope)
+  await destroy()
+})
+
+test('empty and oversized chat messages are rejected', async (t) => {
+  const { host, destroy } = await pair()
+  await host.addMatch('m1', BR, AR, 1000)
+  await host.update()
+  await host.chat('m1', '   ', 'Ada', 1100)
+  await host.chat('m1', 'x'.repeat(2001), 'Ada', 1200)
+  await host.update()
+  t.absent((await host.snapshot()).messages.m1)
+  await destroy()
+})
+
+test('chat text is trimmed', async (t) => {
+  const { host, destroy } = await pair()
+  await host.addMatch('m1', BR, AR, 1000)
+  await host.update()
+  await host.chat('m1', '  spaced  ', 'Ada', 1100)
+  await host.update()
+  t.is((await host.snapshot()).messages.m1[0].text, 'spaced')
+  await destroy()
+})
