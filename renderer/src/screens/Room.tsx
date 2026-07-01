@@ -20,8 +20,9 @@ import {
 } from '@/components/ui/select'
 import { LogOut, Plus, UserPlus } from 'lucide-react'
 import { toast } from 'sonner'
-import { send, type LogState, type Match, type MatchPrediction } from '@/lib/bridge'
+import { send, type LogState, type Match, type MatchPrediction, type Team } from '@/lib/bridge'
 import { COUNTRIES, flagOf, toTeam } from '@/lib/countries'
+import { computeConsensus, type Consensus } from '@/lib/consensus'
 
 const STATUS_VARIANT: Record<MatchPrediction['status'], 'secondary' | 'default' | 'destructive'> = {
   committed: 'secondary',
@@ -136,6 +137,67 @@ function ScoreEntry({ match, mine }: { match: Match; mine?: { a: number; b: numb
   )
 }
 
+function dash(score: string): string {
+  return score.replace('-', '–')
+}
+
+function MatchConsensus({
+  consensus,
+  teamA,
+  teamB
+}: {
+  consensus: Consensus
+  teamA: Team
+  teamB: Team
+}) {
+  const { outcome, popular, avg, contrarians, uniquePicks } = consensus
+  const segments = [
+    { key: 'first', label: teamA.alpha3, pct: outcome.firstPct, className: 'bg-primary' },
+    { key: 'draw', label: 'Draw', pct: outcome.drawPct, className: 'bg-muted-foreground' },
+    { key: 'second', label: teamB.alpha3, pct: outcome.secondPct, className: 'bg-secondary' }
+  ].filter((s) => s.pct > 0)
+
+  return (
+    <div className='space-y-2 rounded-md bg-muted/50 p-3'>
+      <div className='flex h-2 w-full overflow-hidden rounded-full'>
+        {segments.map((s) => (
+          <div key={s.key} className={s.className} style={{ width: `${s.pct}%` }} />
+        ))}
+      </div>
+      <div className='flex flex-wrap justify-between gap-x-4 gap-y-1 text-xs'>
+        {segments.map((s) => (
+          <span key={s.key} className='text-muted-foreground'>
+            {s.label} <span className='text-foreground font-medium'>{s.pct}%</span>
+          </span>
+        ))}
+      </div>
+      <div className='flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground'>
+        {popular ? (
+          <span>
+            Popular <span className='text-foreground font-mono'>{dash(popular.score)}</span> ·{' '}
+            {popular.count} of {consensus.revealedCount}
+          </span>
+        ) : null}
+        <span>
+          Avg total <span className='text-foreground'>{avg.total}</span> ·{' '}
+          <span className='font-mono'>
+            {avg.a}–{avg.b}
+          </span>
+        </span>
+      </div>
+      {contrarians.length > 0 || uniquePicks.length > 0 ? (
+        <p className='text-xs text-muted-foreground'>
+          {contrarians.length > 0 ? <>Contrarian: {contrarians.join(', ')}</> : null}
+          {contrarians.length > 0 && uniquePicks.length > 0 ? ' · ' : ''}
+          {uniquePicks.length > 0 ? (
+            <>Unique: {uniquePicks.map((u) => `${dash(u.score)} (${u.authorName})`).join(', ')}</>
+          ) : null}
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
 function MatchCard({
   match,
   predictions,
@@ -189,22 +251,30 @@ function MatchCard({
           ) : null}
         </>
       ) : (
-        <ul className='space-y-1'>
-          {predictions.map((p) => (
-            <li key={p.author} className='flex items-center justify-between gap-2 text-sm'>
-              <span>
-                {p.authorName}
-                {p.status === 'revealed' ? <span className='font-mono'> {p.score}</span> : null}
-              </span>
-              {p.status !== 'revealed' ? (
-                <Badge variant={STATUS_VARIANT[p.status]}>{p.status}</Badge>
-              ) : null}
-            </li>
-          ))}
-          {predictions.length === 0 ? (
-            <li className='text-sm text-muted-foreground'>No predictions.</li>
-          ) : null}
-        </ul>
+        <>
+          {(() => {
+            const consensus = computeConsensus(predictions)
+            return consensus.revealedCount >= 2 ? (
+              <MatchConsensus consensus={consensus} teamA={match.teamA} teamB={match.teamB} />
+            ) : null
+          })()}
+          <ul className='space-y-1'>
+            {predictions.map((p) => (
+              <li key={p.author} className='flex items-center justify-between gap-2 text-sm'>
+                <span>
+                  {p.authorName}
+                  {p.status === 'revealed' ? <span className='font-mono'> {p.score}</span> : null}
+                </span>
+                {p.status !== 'revealed' ? (
+                  <Badge variant={STATUS_VARIANT[p.status]}>{p.status}</Badge>
+                ) : null}
+              </li>
+            ))}
+            {predictions.length === 0 ? (
+              <li className='text-sm text-muted-foreground'>No predictions.</li>
+            ) : null}
+          </ul>
+        </>
       )}
     </div>
   )
