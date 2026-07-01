@@ -148,6 +148,15 @@ function dash(score: string): string {
   return score.replace('-', '–')
 }
 
+function FlagCircle({ code, size = 112 }: { code: string; size?: number }) {
+  return (
+    <span
+      className={`fi fi-${code.toLowerCase()} fis block rounded-full`}
+      style={{ width: size, height: size, backgroundSize: 'cover' }}
+    />
+  )
+}
+
 const TIER_LABEL: Record<Tier, string> = {
   exact: 'Exact',
   diff: 'Diff',
@@ -376,15 +385,15 @@ function MatchCard({
         ) : null}
       </div>
       <div className='flex items-center justify-center gap-6'>
-        <div className='flex flex-col items-center gap-1'>
-          <span className='text-7xl leading-none'>{match.teamA.flag}</span>
+        <div className='flex flex-col items-center gap-2'>
+          <FlagCircle code={match.teamA.code} />
           <span className='text-xs font-mono font-semibold tracking-widest'>
             {match.teamA.alpha3}
           </span>
         </div>
         <span className='text-sm text-muted-foreground'>vs</span>
-        <div className='flex flex-col items-center gap-1'>
-          <span className='text-7xl leading-none'>{match.teamB.flag}</span>
+        <div className='flex flex-col items-center gap-2'>
+          <FlagCircle code={match.teamB.code} />
           <span className='text-xs font-mono font-semibold tracking-widest'>
             {match.teamB.alpha3}
           </span>
