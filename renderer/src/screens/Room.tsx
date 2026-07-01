@@ -255,10 +255,14 @@ export function Room({ roomKey, log }: { roomKey: string; log: LogState }) {
         ) : (
           <Tabs defaultValue={log.matches[0].id}>
             <div className='overflow-x-auto tab-scroll-fade'>
-              <TabsList className='w-fit'>
+              <TabsList className='h-auto w-fit gap-2 p-1'>
                 {log.matches.map((m) => (
-                  <TabsTrigger key={m.id} value={m.id} className='font-mono whitespace-nowrap'>
-                    {m.teamA.alpha3} {m.teamA.flag} : {m.teamB.flag} {m.teamB.alpha3}
+                  <TabsTrigger
+                    key={m.id}
+                    value={m.id}
+                    className='h-auto px-4 py-2 font-mono whitespace-nowrap'
+                  >
+                    {m.teamA.alpha3} {m.teamA.flag} / {m.teamB.flag} {m.teamB.alpha3}
                   </TabsTrigger>
                 ))}
               </TabsList>
