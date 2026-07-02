@@ -1,9 +1,11 @@
 /* global MAIN_WINDOW_VITE_DEV_SERVER_URL, MAIN_WINDOW_VITE_NAME */
-const { app, BrowserWindow, ipcMain } = require('electron')
+const { app, BrowserWindow, ipcMain, safeStorage } = require('electron')
 const os = require('os')
 const path = require('path')
 const PearRuntime = require('pear-runtime')
 const FramedStream = require('framed-stream')
+const { openIdentityStore } = require('./identity-store.js')
+const { verifyIdentity } = require('./wallet.js')
 
 const { isMac, isLinux, isWindows } = require('which-runtime')
 const { command, flag } = require('paparam')
@@ -48,26 +50,96 @@ function sendToAll(name, data) {
   }
 }
 
+// The app-data root shared by the worker (as argv[2]) and the identity store.
+function appDataDir() {
+  const appPath = getAppPath()
+  if (pearStore) return pearStore
+  if (appPath === null) return path.join(os.tmpdir(), 'pear', appName)
+  const isSnap = !!process.env.SNAP_USER_COMMON
+  const linuxConfigHome = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config')
+  return isMac
+    ? path.join(os.homedir(), 'Library', 'Application Support', appName)
+    : isLinux
+      ? isSnap
+        ? path.join(process.env.SNAP_USER_COMMON, appName)
+        : path.join(linuxConfigHome, appName)
+      : path.join(os.homedir(), 'AppData', 'Roaming', appName)
+}
+
+// Global identity store (wallet seed + profile), created once and encrypted at
+// rest via the OS keychain. WDK and safeStorage both live here in main.
+const crypter = {
+  async encrypt(str) {
+    if (!safeStorage.isEncryptionAvailable()) throw new Error('OS secure storage is unavailable')
+    return safeStorage.encryptString(str)
+  },
+  async decrypt(buf) {
+    return safeStorage.decryptString(Buffer.from(buf))
+  }
+}
+let identityStorePromise = null
+function getIdentityStore() {
+  if (!identityStorePromise) {
+    identityStorePromise = (async () => {
+      const store = await openIdentityStore({ dir: path.join(appDataDir(), 'identity'), crypter })
+      await store.loadOrCreate()
+      return store
+    })()
+  }
+  return identityStorePromise
+}
+
+// Answer a wallet RPC request from the worker over its pipe.
+async function handleWalletRpc(pipe, msg) {
+  try {
+    const store = await getIdentityStore()
+    let result
+    if (msg.cmd === 'wallet-identity') {
+      const p = store.getProfile()
+      result = { address: p.address, name: p.name }
+    } else if (msg.cmd === 'wallet-sign') {
+      const { sig } = await store.wallet.signIdentity({
+        writerKey: msg.payload.writerKey,
+        name: msg.payload.name
+      })
+      result = { sig }
+    } else if (msg.cmd === 'wallet-verify') {
+      result = await verifyIdentity(msg.payload, msg.sig)
+    } else {
+      return
+    }
+    pipe.write(JSON.stringify({ evt: 'wallet-result', id: msg.id, ok: true, result }))
+  } catch (err) {
+    pipe.write(JSON.stringify({ evt: 'wallet-result', id: msg.id, ok: false, error: err.message }))
+  }
+}
+
+// Renderer identity operations (setup, rename, restore, recovery export).
+ipcMain.handle('identity:get', async () => {
+  const store = await getIdentityStore()
+  const p = store.getProfile()
+  return { address: p.address, name: p.name }
+})
+ipcMain.handle('identity:setName', async (_evt, name) => {
+  const store = await getIdentityStore()
+  await store.setName(name)
+  const p = store.getProfile()
+  return { address: p.address, name: p.name }
+})
+ipcMain.handle('identity:restore', async (_evt, phrase) => {
+  const store = await getIdentityStore()
+  const r = await store.restore(phrase)
+  return { address: r.address, name: r.name }
+})
+ipcMain.handle('identity:exportRecovery', async () => {
+  const store = await getIdentityStore()
+  return store.getRecoveryPhrase()
+})
+
 function getWorker(specifier) {
   if (workers.has(specifier)) return workers.get(specifier)
-  const appPath = getAppPath()
-  let dir = null
-  if (pearStore) {
-    console.log('pear store: ' + pearStore)
-    dir = pearStore
-  } else if (appPath === null) {
-    dir = path.join(os.tmpdir(), 'pear', appName)
-  } else {
-    const isSnap = !!process.env.SNAP_USER_COMMON
-    const linuxConfigHome = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config')
-    dir = isMac
-      ? path.join(os.homedir(), 'Library', 'Application Support', appName)
-      : isLinux
-        ? isSnap
-          ? path.join(process.env.SNAP_USER_COMMON, appName)
-          : path.join(linuxConfigHome, appName)
-        : path.join(os.homedir(), 'AppData', 'Roaming', appName)
-  }
+  if (pearStore) console.log('pear store: ' + pearStore)
+  const dir = appDataDir()
 
   const extension = isLinux ? '.AppImage' : isMac ? '.app' : '.msix'
 
@@ -96,14 +168,28 @@ function getWorker(specifier) {
   ipcMain.handle('pear:worker:writeIPC:' + specifier, (evt, data) => {
     return pipe.write(data)
   })
+  function onWalletRpc(data) {
+    let msg = null
+    try {
+      msg = JSON.parse(data.toString())
+    } catch {
+      return
+    }
+    if (!msg || (msg.cmd !== 'wallet-identity' && msg.cmd !== 'wallet-sign' && msg.cmd !== 'wallet-verify')) {
+      return
+    }
+    handleWalletRpc(pipe, msg)
+  }
   workers.set(specifier, pipe)
   pipe.on('data', sendWorkerIPC)
+  pipe.on('data', onWalletRpc)
   worker.stdout.on('data', sendWorkerStdout)
   worker.stderr.on('data', sendWorkerStderr)
   worker.once('exit', (code) => {
     app.removeListener('before-quit', onBeforeQuit)
     ipcMain.removeHandler('pear:worker:writeIPC:' + specifier)
     pipe.removeListener('data', sendWorkerIPC)
+    pipe.removeListener('data', onWalletRpc)
     worker.stdout.removeListener('data', sendWorkerStdout)
     worker.stderr.removeListener('data', sendWorkerStderr)
     sendToAll('pear:worker:exit:' + specifier, code)
