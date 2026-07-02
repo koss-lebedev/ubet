@@ -32,10 +32,15 @@ export type ChatMessage = {
   seq: number
 }
 
+export type Participant = { address: string | null; name: string; verified: boolean }
+
+export type Identity = { address: string; name: string }
+
 export type LogState = {
   matches: Match[]
   predictions: Record<string, MatchPrediction[]>
   messages: Record<string, ChatMessage[]>
+  participants: Record<string, Participant>
   mine: Record<string, { a: number; b: number }>
   host: string | null
   isHost: boolean
@@ -59,8 +64,8 @@ export type WorkerEvent =
   | { evt: 'tournaments-list'; tournaments: TournamentEntry[] }
 
 export type Command =
-  | { cmd: 'create-tournament'; name: string }
-  | { cmd: 'join-tournament'; name: string; key: string }
+  | { cmd: 'create-tournament' }
+  | { cmd: 'join-tournament'; key: string }
   | { cmd: 'leave-tournament' }
   | { cmd: 'add-match'; teamA: Team; teamB: Team }
   | { cmd: 'lock-match'; matchId: string }
@@ -69,13 +74,17 @@ export type Command =
   | { cmd: 'commit'; matchId: string; a: number; b: number }
   | { cmd: 'send-message'; matchId: string; text: string }
   | { cmd: 'list-tournaments' }
-  | { cmd: 'rejoin-tournament'; storeDir: string; key: string; name: string }
+  | { cmd: 'rejoin-tournament'; storeDir: string; key: string }
 
 type Bridge = {
   pkg: () => { version: string }
   startWorker: (spec: string) => unknown
   writeWorkerIPC: (spec: string, data: string) => unknown
   onWorkerIPC: (spec: string, listener: (data: unknown) => void) => () => void
+  getIdentity: () => Promise<Identity>
+  setName: (name: string) => Promise<Identity>
+  restoreIdentity: (phrase: string) => Promise<Identity>
+  exportRecovery: () => Promise<string>
 }
 
 declare global {
@@ -127,4 +136,20 @@ export function pkgVersion(): string {
   } catch {
     return ''
   }
+}
+
+export function getIdentity(): Promise<Identity> {
+  return nativeBridge.getIdentity()
+}
+
+export function setName(name: string): Promise<Identity> {
+  return nativeBridge.setName(name)
+}
+
+export function restoreIdentity(phrase: string): Promise<Identity> {
+  return nativeBridge.restoreIdentity(phrase)
+}
+
+export function exportRecovery(): Promise<string> {
+  return nativeBridge.exportRecovery()
 }
