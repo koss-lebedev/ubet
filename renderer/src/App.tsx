@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { startWorker, onEvent, send, type LogState, type RoomEntry } from '@/lib/bridge'
+import { startWorker, onEvent, send, type LogState, type TournamentEntry } from '@/lib/bridge'
 import { Landing } from '@/screens/Landing'
-import { Room } from '@/screens/Room'
+import { Tournament } from '@/screens/Tournament'
 
 const EMPTY: LogState = {
   matches: [],
@@ -16,31 +16,31 @@ const EMPTY: LogState = {
 }
 
 export default function App() {
-  const [screen, setScreen] = useState<'landing' | 'room'>('landing')
-  const [roomKey, setRoomKey] = useState('')
+  const [screen, setScreen] = useState<'landing' | 'tournament'>('landing')
+  const [tournamentKey, setTournamentKey] = useState('')
   const [log, setLog] = useState<LogState>(EMPTY)
   const [error, setError] = useState('')
-  const [rooms, setRooms] = useState<RoomEntry[]>([])
+  const [tournaments, setTournaments] = useState<TournamentEntry[]>([])
 
   useEffect(() => {
     startWorker()
-    send({ cmd: 'list-rooms' })
+    send({ cmd: 'list-tournaments' })
     const off = onEvent((e) => {
       switch (e.evt) {
-        case 'room-ready':
-          setRoomKey(e.key)
-          setScreen('room')
+        case 'tournament-ready':
+          setTournamentKey(e.key)
+          setScreen('tournament')
           break
         case 'log-state':
           setLog(e)
           break
-        case 'room-left':
+        case 'tournament-left':
           setScreen('landing')
           setLog(EMPTY)
-          send({ cmd: 'list-rooms' })
+          send({ cmd: 'list-tournaments' })
           break
-        case 'rooms-list':
-          setRooms(e.rooms)
+        case 'tournaments-list':
+          setTournaments(e.tournaments)
           break
         case 'error':
           setError(e.message)
@@ -51,8 +51,8 @@ export default function App() {
   }, [])
 
   return screen === 'landing' ? (
-    <Landing error={error} onError={setError} rooms={rooms} />
+    <Landing error={error} onError={setError} tournaments={tournaments} />
   ) : (
-    <Room roomKey={roomKey} log={log} />
+    <Tournament tournamentKey={tournamentKey} log={log} />
   )
 }

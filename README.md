@@ -6,15 +6,15 @@ Peer-to-peer prediction pool built on [Autobase](https://github.com/holepunchto/
 
 ## Append-only log
 
-Each room is backed by an Autobase log. Every participant appends signed JSON entries to their own Hypercore; Autobase linearises the writes into a deterministic order and materialises a [Hyperbee](https://github.com/holepunchto/hyperbee) key/value view.
+Each tournament is backed by an Autobase log. Every participant appends signed JSON entries to their own Hypercore; Autobase linearises the writes into a deterministic order and materialises a [Hyperbee](https://github.com/holepunchto/hyperbee) key/value view.
 
 ### Entry types
 
-All entries share a `type` discriminator field. Entries marked **host only** are ignored unless appended from the room's host key.
+All entries share a `type` discriminator field. Entries marked **host only** are ignored unless appended from the tournament's host key.
 
 | `type`       | Appended by | When                                                               | Payload (besides `type`)               |
 | ------------ | ----------- | ------------------------------------------------------------------ | -------------------------------------- |
-| `init`       | Host        | Once, at room creation                                             | `host`                                 |
+| `init`       | Host        | Once, at tournament creation                                       | `host`                                 |
 | `add-writer` | Host        | Admitting a participant into the multi-writer set                  | `key`, `name`                          |
 | `add-match`  | Host only   | Registering a new match                                            | `id`, `teamA`, `teamB`, `createdAt`    |
 | `commit`     | Participant | Locking in a hidden prediction while the match is `open`           | `matchId`, `hash`, `name`, `createdAt` |
@@ -50,9 +50,9 @@ The `apply` function reduces the linearised log into a Hyperbee key/value store:
 
 ## Local files
 
-Each room directory on disk (`storeDir`) contains:
+Each tournament directory on disk (`storeDir`) contains:
 
-| File           | Contents                                                                             |
-| -------------- | ------------------------------------------------------------------------------------ |
-| `room.json`    | `{ "key", "name", "createdAt" }` — room manifest, written once                       |
-| `secrets.json` | `{ "<matchId>": { "a", "b", "nonce" } }` — plaintext scores and nonces, never shared |
+| File              | Contents                                                                             |
+| ----------------- | ------------------------------------------------------------------------------------ |
+| `tournament.json` | `{ "key", "name", "createdAt" }` — tournament manifest, written once                 |
+| `secrets.json`    | `{ "<matchId>": { "a", "b", "nonce" } }` — plaintext scores and nonces, never shared |

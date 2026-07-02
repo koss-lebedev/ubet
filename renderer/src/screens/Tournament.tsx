@@ -512,11 +512,11 @@ function MatchCard({
   )
 }
 
-export function Room({ roomKey, log }: { roomKey: string; log: LogState }) {
+export function Tournament({ tournamentKey, log }: { tournamentKey: string; log: LogState }) {
   async function copy() {
     try {
-      await navigator.clipboard.writeText(roomKey)
-      toast('Room key copied')
+      await navigator.clipboard.writeText(tournamentKey)
+      toast('Tournament key copied')
     } catch {
       toast('Copy failed')
     }
@@ -534,7 +534,7 @@ export function Room({ roomKey, log }: { roomKey: string; log: LogState }) {
           size='icon'
           variant='glass'
           className='size-11'
-          title='Invite (copy room key)'
+          title='Invite (copy tournament key)'
           onClick={copy}
         >
           <UserPlus className='size-5' />
@@ -549,7 +549,7 @@ export function Room({ roomKey, log }: { roomKey: string; log: LogState }) {
           className='mt-auto size-11'
           variant='glass'
           title='Leave'
-          onClick={() => send({ cmd: 'leave-room' })}
+          onClick={() => send({ cmd: 'leave-tournament' })}
         >
           <LogOut className='size-5' />
         </Button>

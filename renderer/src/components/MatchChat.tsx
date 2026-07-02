@@ -37,7 +37,7 @@ export function MatchChat({
   }
 
   return (
-    <div className='flex h-full flex-col rounded-md border'>
+    <div className='flex h-full flex-col overflow-hidden rounded-md border'>
       <div className='border-b px-4 py-2 text-sm font-medium'>Chat</div>
 
       <div className='flex-1 space-y-2 overflow-y-auto p-4'>
@@ -101,7 +101,7 @@ export function MatchChat({
             </Button>
           </div>
         ) : (
-          <p className='text-muted-foreground text-center text-xs'>Join the room to chat.</p>
+          <p className='text-muted-foreground text-center text-xs'>Join the tournament to chat.</p>
         )}
       </div>
     </div>

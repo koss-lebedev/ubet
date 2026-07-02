@@ -1,5 +1,5 @@
 const test = require('brittle')
-const { Room } = require('../workers/lib/room.js')
+const { Tournament } = require('../workers/lib/tournament.js')
 
 function makeFakeSwarm() {
   const handlers = {}
@@ -28,23 +28,23 @@ function makeFakeSwarm() {
 test('join validates the key, joins server+client, and reports status', async (t) => {
   const swarm = makeFakeSwarm()
   const statuses = []
-  const room = new Room({ swarm, onStatus: (s) => statuses.push(s) })
-  await room.join('ab'.repeat(32))
+  const tournament = new Tournament({ swarm, onStatus: (s) => statuses.push(s) })
+  await tournament.join('ab'.repeat(32))
   t.is(swarm.joined.length, 1)
   t.alike(swarm.joined[0].opts, { server: true, client: true })
   t.alike(statuses, ['connecting', 'connected'])
 })
 
 test('join rejects an invalid key', async (t) => {
-  const room = new Room({ swarm: makeFakeSwarm() })
-  await t.exception(() => room.join('not-hex'))
+  const tournament = new Tournament({ swarm: makeFakeSwarm() })
+  await t.exception(() => tournament.join('not-hex'))
 })
 
 test('each connection invokes onConnection', async (t) => {
   const swarm = makeFakeSwarm()
   const conns = []
-  const room = new Room({ swarm, onConnection: (c) => conns.push(c) })
-  await room.join('cd'.repeat(32))
+  const tournament = new Tournament({ swarm, onConnection: (c) => conns.push(c) })
+  await tournament.join('cd'.repeat(32))
   swarm.emitConnection({ id: 1 })
   swarm.emitConnection({ id: 2 })
   t.is(conns.length, 2)
@@ -53,8 +53,8 @@ test('each connection invokes onConnection', async (t) => {
 
 test('leave stops listening and leaves the topic', async (t) => {
   const swarm = makeFakeSwarm()
-  const room = new Room({ swarm })
-  await room.join('ef'.repeat(32))
-  await room.leave()
+  const tournament = new Tournament({ swarm })
+  await tournament.join('ef'.repeat(32))
+  await tournament.leave()
   t.is(swarm.left.length, 1)
 })

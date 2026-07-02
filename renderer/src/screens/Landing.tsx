@@ -5,23 +5,23 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { send, type RoomEntry } from '@/lib/bridge'
+import { send, type TournamentEntry } from '@/lib/bridge'
 
 const HEX64 = /^[0-9a-fA-F]{64}$/
 
 export function Landing({
   error,
   onError,
-  rooms
+  tournaments
 }: {
   error: string
   onError: (m: string) => void
-  rooms: RoomEntry[]
+  tournaments: TournamentEntry[]
 }) {
   const [name, setName] = useState('')
   const [key, setKey] = useState('')
   const [pendingAction, setPendingAction] = useState<string | null>(null)
-  const hasRooms = rooms.length > 0
+  const hasTournaments = tournaments.length > 0
 
   useEffect(() => {
     if (error) setPendingAction(null)
@@ -34,7 +34,7 @@ export function Landing({
     }
     onError('')
     setPendingAction('create')
-    send({ cmd: 'create-room', name: name.trim() })
+    send({ cmd: 'create-tournament', name: name.trim() })
   }
 
   function join() {
@@ -43,18 +43,23 @@ export function Landing({
       return
     }
     if (!HEX64.test(key.trim())) {
-      onError('Room key must be 64 hex characters')
+      onError('Tournament key must be 64 hex characters')
       return
     }
     onError('')
     setPendingAction('join')
-    send({ cmd: 'join-room', name: name.trim(), key: key.trim() })
+    send({ cmd: 'join-tournament', name: name.trim(), key: key.trim() })
   }
 
-  function rejoin(room: RoomEntry) {
+  function rejoin(tournament: TournamentEntry) {
     onError('')
-    setPendingAction(`rejoin:${room.storeDir}`)
-    send({ cmd: 'rejoin-room', storeDir: room.storeDir, key: room.key, name: room.name })
+    setPendingAction(`rejoin:${tournament.storeDir}`)
+    send({
+      cmd: 'rejoin-tournament',
+      storeDir: tournament.storeDir,
+      key: tournament.key,
+      name: tournament.name
+    })
   }
 
   return (
@@ -62,34 +67,34 @@ export function Landing({
       <Card className='w-full max-w-md shadow-2xl'>
         <CardHeader>
           <CardTitle>Pear Prediction Pool</CardTitle>
-          <CardDescription>Create a room and share the key, or join one.</CardDescription>
+          <CardDescription>Create a tournament and share the key, or join one.</CardDescription>
         </CardHeader>
         <CardContent className='space-y-4'>
-          <Tabs defaultValue={hasRooms ? 'resume' : 'create'}>
+          <Tabs defaultValue={hasTournaments ? 'resume' : 'create'}>
             <TabsList className='w-full'>
-              {hasRooms ? <TabsTrigger value='resume'>Resume</TabsTrigger> : null}
+              {hasTournaments ? <TabsTrigger value='resume'>Resume</TabsTrigger> : null}
               <TabsTrigger value='create'>Create</TabsTrigger>
               <TabsTrigger value='join'>Join</TabsTrigger>
             </TabsList>
 
-            {hasRooms ? (
+            {hasTournaments ? (
               <TabsContent value='resume' className='space-y-2'>
                 <ul className='space-y-1'>
-                  {rooms.map((room) => (
-                    <li key={room.storeDir}>
+                  {tournaments.map((tournament) => (
+                    <li key={tournament.storeDir}>
                       <Button
                         className='w-full justify-between font-mono text-xs'
                         variant='ghost'
                         disabled={pendingAction !== null}
-                        onClick={() => rejoin(room)}
+                        onClick={() => rejoin(tournament)}
                       >
-                        {pendingAction === `rejoin:${room.storeDir}` ? (
+                        {pendingAction === `rejoin:${tournament.storeDir}` ? (
                           <Loader2 className='size-4 animate-spin' />
                         ) : (
-                          <span>{room.key.slice(0, 8)}…</span>
+                          <span>{tournament.key.slice(0, 8)}…</span>
                         )}
                         <span className='text-muted-foreground font-sans'>
-                          {room.name} · {new Date(room.createdAt).toLocaleDateString()}
+                          {tournament.name} · {new Date(tournament.createdAt).toLocaleDateString()}
                         </span>
                       </Button>
                     </li>
@@ -110,7 +115,7 @@ export function Landing({
               </div>
               <Button className='w-full' disabled={pendingAction !== null} onClick={create}>
                 {pendingAction === 'create' ? <Loader2 className='size-4 animate-spin' /> : null}
-                Create room
+                Create tournament
               </Button>
             </TabsContent>
 
@@ -125,17 +130,17 @@ export function Landing({
                 />
               </div>
               <div className='space-y-2'>
-                <Label htmlFor='join-key'>Room key</Label>
+                <Label htmlFor='join-key'>Tournament key</Label>
                 <Input
                   id='join-key'
-                  placeholder='64-character room key'
+                  placeholder='64-character tournament key'
                   value={key}
                   onChange={(e) => setKey(e.target.value)}
                 />
               </div>
               <Button className='w-full' disabled={pendingAction !== null} onClick={join}>
                 {pendingAction === 'join' ? <Loader2 className='size-4 animate-spin' /> : null}
-                Join room
+                Join tournament
               </Button>
             </TabsContent>
           </Tabs>

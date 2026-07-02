@@ -43,7 +43,7 @@ export type LogState = {
   status: 'connecting' | 'connected'
 }
 
-export type RoomEntry = {
+export type TournamentEntry = {
   storeDir: string
   key: string
   name: string
@@ -51,23 +51,23 @@ export type RoomEntry = {
 }
 
 export type WorkerEvent =
-  | { evt: 'room-ready'; key: string }
+  | { evt: 'tournament-ready'; key: string }
   | ({ evt: 'log-state' } & LogState)
-  | { evt: 'room-left' }
+  | { evt: 'tournament-left' }
   | { evt: 'error'; message: string }
-  | { evt: 'rooms-list'; rooms: RoomEntry[] }
+  | { evt: 'tournaments-list'; tournaments: TournamentEntry[] }
 
 export type Command =
-  | { cmd: 'create-room'; name: string }
-  | { cmd: 'join-room'; name: string; key: string }
-  | { cmd: 'leave-room' }
+  | { cmd: 'create-tournament'; name: string }
+  | { cmd: 'join-tournament'; name: string; key: string }
+  | { cmd: 'leave-tournament' }
   | { cmd: 'add-match'; teamA: Team; teamB: Team }
   | { cmd: 'lock-match'; matchId: string }
   | { cmd: 'set-result'; matchId: string; a: number; b: number }
   | { cmd: 'commit'; matchId: string; a: number; b: number }
   | { cmd: 'send-message'; matchId: string; text: string }
-  | { cmd: 'list-rooms' }
-  | { cmd: 'rejoin-room'; storeDir: string; key: string; name: string }
+  | { cmd: 'list-tournaments' }
+  | { cmd: 'rejoin-tournament'; storeDir: string; key: string; name: string }
 
 type Bridge = {
   pkg: () => { version: string }

@@ -6,7 +6,7 @@ const path = isBare ? require('bare-path') : require('path')
 const Hyperswarm = require('hyperswarm')
 const Protomux = require('protomux')
 const c = require('compact-encoding')
-const { Room } = require('./room.js')
+const { Tournament } = require('./tournament.js')
 const { createLog, openLog } = require('./prediction-log.js')
 const { randomNonce, commitHash } = require('./commit-reveal.js')
 
@@ -43,7 +43,7 @@ class Session {
     this._revealed = new Set() // matchIds we have already appended a reveal for
     this._status = 'connecting'
     this._onState = () => {}
-    this.room = new Room({
+    this.tournament = new Tournament({
       swarm: this.swarm,
       onStatus: (s) => {
         this._status = s
@@ -60,7 +60,7 @@ class Session {
 
   async start() {
     await loadSecrets(this._secretsPath, this.secrets)
-    await this.room.join(this.log.key)
+    await this.tournament.join(this.log.key)
     return this
   }
 
@@ -141,7 +141,7 @@ class Session {
 
   async close() {
     try {
-      await this.room.leave()
+      await this.tournament.leave()
     } catch {}
     try {
       await this.swarm.destroy()

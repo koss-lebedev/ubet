@@ -4,7 +4,7 @@ const b4a = require('b4a')
 
 const HEX64 = /^[0-9a-fA-F]{64}$/
 
-class Room {
+class Tournament {
   constructor({ swarm, onConnection = () => {}, onStatus = () => {} }) {
     if (!swarm) throw new Error('swarm is required')
     this.swarm = swarm
@@ -15,7 +15,7 @@ class Room {
   }
 
   async join(topicHex) {
-    if (!HEX64.test(topicHex)) throw new Error('Room key must be 64 hex characters')
+    if (!HEX64.test(topicHex)) throw new Error('Tournament key must be 64 hex characters')
     this.topic = b4a.from(topicHex, 'hex')
     this.swarm.on('connection', this._handler)
     this.onStatus('connecting')
@@ -33,4 +33,4 @@ class Room {
   }
 }
 
-module.exports = { Room }
+module.exports = { Tournament }

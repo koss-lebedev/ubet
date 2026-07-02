@@ -6,7 +6,7 @@ const FramedStream = require('framed-stream')
 const path = require('bare-path')
 const b4a = require('b4a')
 const crypto = require('hypercore-crypto')
-const { writeManifest, listManifests } = require('./lib/room-manifest.js')
+const { writeManifest, listManifests } = require('./lib/tournament-manifest.js')
 
 const { createSession, joinSession } = require('./lib/session.js')
 
@@ -18,8 +18,8 @@ function sendEvent(obj) {
   pipe.write(JSON.stringify(obj))
 }
 
-function roomsDir() {
-  return path.join(updaterConfig.dir, 'rooms')
+function tournamentsDir() {
+  return path.join(updaterConfig.dir, 'tournaments')
 }
 
 async function stopSession() {
@@ -105,26 +105,26 @@ pipe.on('data', async (data) => {
   }
 
   try {
-    if (msg.cmd === 'create-room') {
+    if (msg.cmd === 'create-tournament') {
       await stopSession()
-      const roomId = b4a.toString(crypto.randomBytes(16), 'hex')
-      const storeDir = path.join(roomsDir(), roomId)
+      const tournamentId = b4a.toString(crypto.randomBytes(16), 'hex')
+      const storeDir = path.join(tournamentsDir(), tournamentId)
       session = await createSession({ name: msg.name, storeDir })
       wireState()
       await session.start()
       await writeManifest(storeDir, { key: session.key, name: msg.name })
-      sendEvent({ evt: 'room-ready', key: session.key })
-    } else if (msg.cmd === 'join-room') {
+      sendEvent({ evt: 'tournament-ready', key: session.key })
+    } else if (msg.cmd === 'join-tournament') {
       await stopSession()
-      const storeDir = path.join(roomsDir(), msg.key)
+      const storeDir = path.join(tournamentsDir(), msg.key)
       session = await joinSession({ name: msg.name, key: msg.key, storeDir })
       wireState()
       await session.start()
       await writeManifest(storeDir, { key: msg.key, name: msg.name })
-      sendEvent({ evt: 'room-ready', key: session.key })
-    } else if (msg.cmd === 'leave-room') {
+      sendEvent({ evt: 'tournament-ready', key: session.key })
+    } else if (msg.cmd === 'leave-tournament') {
       await stopSession()
-      sendEvent({ evt: 'room-left' })
+      sendEvent({ evt: 'tournament-left' })
     } else if (msg.cmd === 'add-match') {
       if (session) await session.addMatch(msg.teamA, msg.teamB)
     } else if (msg.cmd === 'lock-match') {
@@ -135,15 +135,15 @@ pipe.on('data', async (data) => {
       if (session) await session.commit(msg.matchId, msg.a, msg.b)
     } else if (msg.cmd === 'send-message') {
       if (session) await session.sendMessage(msg.matchId, msg.text)
-    } else if (msg.cmd === 'list-rooms') {
-      const rooms = await listManifests(roomsDir())
-      sendEvent({ evt: 'rooms-list', rooms })
-    } else if (msg.cmd === 'rejoin-room') {
+    } else if (msg.cmd === 'list-tournaments') {
+      const tournaments = await listManifests(tournamentsDir())
+      sendEvent({ evt: 'tournaments-list', tournaments })
+    } else if (msg.cmd === 'rejoin-tournament') {
       await stopSession()
       session = await joinSession({ name: msg.name, key: msg.key, storeDir: msg.storeDir })
       wireState()
       await session.start()
-      sendEvent({ evt: 'room-ready', key: session.key })
+      sendEvent({ evt: 'tournament-ready', key: session.key })
     }
   } catch (err) {
     sendEvent({ evt: 'error', message: err.message })
