@@ -446,3 +446,29 @@ test('identity entry with mismatched author is dropped (replay guard)', async (t
   t.absent((await joiner.snapshot()).participants[victim])
   await destroy()
 })
+
+test('tournament name given at creation is visible in the host snapshot immediately', async (t) => {
+  const host = await createLog(tmp(), 'Champions League')
+  t.is((await host.snapshot()).tournamentName, 'Champions League')
+  await host.close()
+})
+
+test('tournament name replicates to joiners', async (t) => {
+  const host = await createLog(tmp(), 'Champions League')
+  const joiner = await openLog(tmp(), host.key)
+  const s1 = host.replicate(true)
+  const s2 = joiner.replicate(false)
+  s1.pipe(s2).pipe(s1)
+  await pump(host, joiner)
+  t.is((await joiner.snapshot()).tournamentName, 'Champions League')
+  s1.destroy()
+  s2.destroy()
+  await host.close()
+  await joiner.close()
+})
+
+test('tournament name defaults to empty string when not given', async (t) => {
+  const host = await createLog(tmp())
+  t.is((await host.snapshot()).tournamentName, '')
+  await host.close()
+})

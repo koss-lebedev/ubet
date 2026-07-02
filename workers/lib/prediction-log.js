@@ -75,6 +75,7 @@ class PredictionLog {
 
       if (v.type === 'init') {
         await view.put('meta/host', v.host)
+        await view.put('meta/name', v.name || '')
       } else if (v.type === 'add-writer') {
         await host.addWriter(b4a.from(v.key, 'hex'), { indexer: true })
         const prevW = viewValue(await view.get('writer/' + v.key)) || {}
@@ -171,8 +172,8 @@ class PredictionLog {
     }
   }
 
-  async createInit() {
-    await this.base.append({ type: 'init', host: this.localWriterKey })
+  async createInit(name = '') {
+    await this.base.append({ type: 'init', host: this.localWriterKey, name })
   }
   async addWriter(keyHex, name) {
     await this.base.append({ type: 'add-writer', key: keyHex, name })
@@ -214,6 +215,7 @@ class PredictionLog {
 
   async snapshot() {
     const host = viewValue(await this.base.view.get('meta/host'))
+    const tournamentName = viewValue(await this.base.view.get('meta/name')) || ''
     const matches = []
     for await (const { value } of this.base.view.createReadStream({
       gte: 'match/',
@@ -262,6 +264,7 @@ class PredictionLog {
       predictions,
       messages,
       participants,
+      tournamentName,
       host,
       isHost: this.isHost,
       writable: this.writable,
@@ -275,10 +278,10 @@ class PredictionLog {
   }
 }
 
-async function createLog(storeDir) {
+async function createLog(storeDir, name = '') {
   const log = new PredictionLog({ storeDir })
   await log.ready()
-  await log.createInit()
+  await log.createInit(name)
   return log
 }
 

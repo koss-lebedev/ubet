@@ -203,8 +203,8 @@ class Session {
   }
 }
 
-async function createSession({ identity, walletRpc, storeDir }) {
-  const log = await createLog(storeDir)
+async function createSession({ identity, walletRpc, storeDir, tournamentName }) {
+  const log = await createLog(storeDir, tournamentName)
   return new Session({ log, identity, walletRpc, storeDir })
 }
 

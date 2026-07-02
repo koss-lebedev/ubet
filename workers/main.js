@@ -51,13 +51,21 @@ async function stopSession() {
 }
 
 function wireState() {
-  session.onState((s) =>
+  let manifestWritten = false
+  session.onState((s) => {
+    if (!manifestWritten && s.tournamentName) {
+      manifestWritten = true
+      writeManifest(session.storeDir, { key: session.key, name: s.tournamentName }).catch((err) =>
+        console.error('Failed to write tournament manifest:', err)
+      )
+    }
     sendEvent({
       evt: 'log-state',
       matches: s.matches,
       predictions: s.predictions,
       messages: s.messages,
       participants: s.participants,
+      tournamentName: s.tournamentName,
       mine: s.mine,
       host: s.host,
       isHost: s.isHost,
@@ -65,7 +73,7 @@ function wireState() {
       localAuthor: s.localAuthor,
       status: s.status
     })
-  )
+  })
 }
 
 const updaterConfig = {
@@ -128,11 +136,12 @@ pipe.on('data', async (data) => {
       const identity = await walletRpc.getIdentity()
       const tournamentId = b4a.toString(crypto.randomBytes(16), 'hex')
       const storeDir = path.join(tournamentsDir(), tournamentId)
-      session = await createSession({ identity, walletRpc, storeDir })
+      const tournamentName =
+        typeof msg.name === 'string' && msg.name.trim() ? msg.name.trim() : 'Untitled tournament'
+      session = await createSession({ identity, walletRpc, storeDir, tournamentName })
       wireState()
       await session.start()
       await session.publishIdentity()
-      await writeManifest(storeDir, { key: session.key, name: identity.name })
       sendEvent({ evt: 'tournament-ready', key: session.key })
     } else if (msg.cmd === 'join-tournament') {
       await stopSession()
@@ -142,7 +151,6 @@ pipe.on('data', async (data) => {
       wireState()
       await session.start()
       await session.publishIdentity()
-      await writeManifest(storeDir, { key: msg.key, name: identity.name })
       sendEvent({ evt: 'tournament-ready', key: session.key })
     } else if (msg.cmd === 'leave-tournament') {
       await stopSession()

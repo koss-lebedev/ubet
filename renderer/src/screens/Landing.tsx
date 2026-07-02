@@ -23,6 +23,7 @@ export function Landing({
   tournaments: TournamentEntry[]
   onManageIdentity: () => void
 }) {
+  const [tournamentName, setTournamentName] = useState('')
   const [key, setKey] = useState('')
   const [pendingAction, setPendingAction] = useState<string | null>(null)
   const hasTournaments = tournaments.length > 0
@@ -32,9 +33,13 @@ export function Landing({
   }, [error])
 
   function create() {
+    if (!tournamentName.trim()) {
+      onError('Enter a tournament name')
+      return
+    }
     onError('')
     setPendingAction('create')
-    send({ cmd: 'create-tournament' })
+    send({ cmd: 'create-tournament', name: tournamentName.trim() })
   }
 
   function join() {
@@ -111,6 +116,15 @@ export function Landing({
               <p className='text-muted-foreground text-sm'>
                 Start a new tournament and invite others with its key.
               </p>
+              <div className='space-y-2'>
+                <Label htmlFor='tournament-name'>Tournament name</Label>
+                <Input
+                  id='tournament-name'
+                  placeholder='e.g. Champions League'
+                  value={tournamentName}
+                  onChange={(e) => setTournamentName(e.target.value)}
+                />
+              </div>
               <Button className='w-full' disabled={pendingAction !== null} onClick={create}>
                 {pendingAction === 'create' ? <Loader2 className='size-4 animate-spin' /> : null}
                 Create tournament

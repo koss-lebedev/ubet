@@ -12,11 +12,14 @@ import { Landing } from '@/screens/Landing'
 import { Tournament } from '@/screens/Tournament'
 import { IdentitySetup } from '@/screens/IdentitySetup'
 
+const DEFAULT_TITLE = 'Pear Prediction Pool'
+
 const EMPTY: LogState = {
   matches: [],
   predictions: {},
   messages: {},
   participants: {},
+  tournamentName: '',
   mine: {},
   host: null,
   isHost: false,
@@ -67,6 +70,11 @@ export default function App() {
     })
     return off
   }, [])
+
+  useEffect(() => {
+    document.title =
+      screen === 'tournament' && log.tournamentName ? log.tournamentName : DEFAULT_TITLE
+  }, [screen, log.tournamentName])
 
   if (screen === 'setup') {
     return (

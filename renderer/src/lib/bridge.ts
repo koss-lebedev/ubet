@@ -43,6 +43,7 @@ export type LogState = {
   predictions: Record<string, MatchPrediction[]>
   messages: Record<string, ChatMessage[]>
   participants: Record<string, Participant>
+  tournamentName: string
   mine: Record<string, { a: number; b: number }>
   host: string | null
   isHost: boolean
@@ -66,7 +67,7 @@ export type WorkerEvent =
   | { evt: 'tournaments-list'; tournaments: TournamentEntry[] }
 
 export type Command =
-  | { cmd: 'create-tournament' }
+  | { cmd: 'create-tournament'; name: string }
   | { cmd: 'join-tournament'; key: string }
   | { cmd: 'leave-tournament' }
   | { cmd: 'add-match'; teamA: Team; teamB: Team }

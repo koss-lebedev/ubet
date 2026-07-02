@@ -14,7 +14,7 @@ All entries share a `type` discriminator field. Entries marked **host only** are
 
 | `type`         | Appended by | When                                                                | Payload (besides `type`)                           |
 | -------------- | ----------- | ------------------------------------------------------------------- | -------------------------------------------------- |
-| `init`         | Host        | Once, at tournament creation                                        | `host`                                             |
+| `init`         | Host        | Once, at tournament creation                                        | `host`, `name`                                     |
 | `add-writer`   | Host        | Admitting a participant into the multi-writer set                   | `key`, `name`                                      |
 | `identity`     | Participant | Binding the appending writer key to a wallet address + display name | `writerKey`, `address`, `name`, `sig`, `createdAt` |
 | `add-match`    | Host only   | Registering a new match                                             | `id`, `teamA`, `teamB`, `createdAt`                |
@@ -34,6 +34,7 @@ Notes:
 - `chat.text` is trimmed and capped at 2000 characters; empty or over-long messages are dropped, as are entries referencing an unknown `matchId`.
 - Locking a match seeds its score at `0-0`; `update-score` can be called any number of times afterward while the match is `locked`. `finish-match` moves it to `final`, after which further `update-score` calls are rejected.
 - Chat entries carry a `kind` of `message` (a real participant message) or `system` (an auto-generated announcement for `update-score`/`finish-match`), both delivered through the same ordered chat stream.
+- `init.name` is the tournament name chosen by the host at creation time; it replicates to joiners and is the source of truth for the window title and the local "resume" list (see below).
 
 ---
 
@@ -44,6 +45,7 @@ The `apply` function reduces the linearised log into a Hyperbee key/value store:
 | Key                           | Value                                                                                                                                       |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | `meta/host`                   | `"<writer-key-hex>"`                                                                                                                        |
+| `meta/name`                   | `"<tournament-name>"` — set once from `init.name`, empty string if never given                                                              |
 | `meta/chatSeq`                | `<number>` — monotonic counter giving chat messages a total order                                                                           |
 | `writer/<key>`                | `{ "name", "address"?, "sig"? }` — `address`/`sig` are set by an `identity` entry; `verified` is derived per-node at read time (not stored) |
 | `match/<id>`                  | `{ "id", "teamA", "teamB", "status": "open"\|"locked"\|"final", "createdAt", "lockedAt"?, "result"?: { "a", "b" }, "finishedAt"? }`         |
@@ -65,10 +67,10 @@ Two kinds of on-disk state live under the app-data root. The **global identity**
 
 ### Per tournament — `storeDir` = `<app-data>/tournaments/<id>/`
 
-| File              | Contents                                                                             |
-| ----------------- | ------------------------------------------------------------------------------------ |
-| `tournament.json` | `{ "key", "name", "createdAt" }` — tournament manifest, written once                 |
-| `secrets.json`    | `{ "<matchId>": { "a", "b", "nonce" } }` — plaintext scores and nonces, never shared |
+| File              | Contents                                                                                                                                                                                  |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tournament.json` | `{ "key", "name", "createdAt" }` — local manifest for the "resume" list; `name` is copied from `meta/name` the first time it's known (immediately for the host, once synced for a joiner) |
+| `secrets.json`    | `{ "<matchId>": { "a", "b", "nonce" } }` — plaintext scores and nonces, never shared                                                                                                      |
 
 ---
 
