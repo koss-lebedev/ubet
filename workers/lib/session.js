@@ -32,15 +32,46 @@ function matchesToReveal(secretMatchIds, matches, revealed) {
     .map((m) => m.id)
 }
 
+// Turn the raw `writer/*` bindings (address, name, sig) into UI participants
+// (address, name, verified). Signature verification is delegated to Electron
+// main via walletRpc and cached per writer by its current sig; the sig itself
+// is never forwarded to the renderer.
+async function resolveParticipants(raw, walletRpc, cache) {
+  const out = {}
+  for (const [writerKey, p] of Object.entries(raw || {})) {
+    let verified = false
+    if (p.sig && p.address) {
+      const cached = cache.get(writerKey)
+      if (cached && cached.sig === p.sig) {
+        verified = cached.ok
+      } else {
+        try {
+          verified = walletRpc
+            ? await walletRpc.verify({ writerKey, address: p.address, name: p.name }, p.sig)
+            : false
+        } catch {
+          verified = false
+        }
+        cache.set(writerKey, { sig: p.sig, ok: verified })
+      }
+    }
+    out[writerKey] = { address: p.address, name: p.name, verified }
+  }
+  return out
+}
+
 class Session {
-  constructor({ log, name, storeDir }) {
+  constructor({ log, identity, walletRpc, storeDir }) {
     this.log = log
-    this.name = name
+    this.identity = identity || null
+    this.walletRpc = walletRpc || null
+    this.name = (identity && identity.name) || ''
     this.storeDir = storeDir
     this._secretsPath = path.join(storeDir, 'secrets.json')
     this.swarm = new Hyperswarm()
     this.secrets = new Map() // matchId -> { a, b, nonce }
     this._revealed = new Set() // matchIds we have already appended a reveal for
+    this._verifiedCache = new Map() // writerKey -> { sig, ok }
     this._status = 'connecting'
     this._onState = () => {}
     this.tournament = new Tournament({
@@ -117,6 +148,17 @@ class Session {
     await this.log.finishMatch(matchId)
   }
 
+  async publishIdentity() {
+    if (!this.walletRpc || !this.identity || !this.identity.address) return
+    const writerKey = this.log.localWriterKey
+    const { sig } = await this.walletRpc.sign({
+      writerKey,
+      address: this.identity.address,
+      name: this.name
+    })
+    await this.log.publishIdentity(writerKey, this.identity.address, this.name, sig)
+  }
+
   async sendMessage(matchId, text) {
     await this.log.chat(matchId, text, this.name)
   }
@@ -140,7 +182,12 @@ class Session {
     }
     const mine = {}
     for (const [matchId, secret] of this.secrets) mine[matchId] = { a: secret.a, b: secret.b }
-    this._onState({ ...snap, mine, status: this._status })
+    const participants = await resolveParticipants(
+      snap.participants,
+      this.walletRpc,
+      this._verifiedCache
+    )
+    this._onState({ ...snap, participants, mine, status: this._status })
   }
 
   async close() {
@@ -156,14 +203,22 @@ class Session {
   }
 }
 
-async function createSession({ name, storeDir }) {
+async function createSession({ identity, walletRpc, storeDir }) {
   const log = await createLog(storeDir)
-  return new Session({ log, name, storeDir })
+  return new Session({ log, identity, walletRpc, storeDir })
 }
 
-async function joinSession({ name, key, storeDir }) {
+async function joinSession({ identity, walletRpc, key, storeDir }) {
   const log = await openLog(storeDir, key)
-  return new Session({ log, name, storeDir })
+  return new Session({ log, identity, walletRpc, storeDir })
 }
 
-module.exports = { Session, createSession, joinSession, matchesToReveal, saveSecrets, loadSecrets }
+module.exports = {
+  Session,
+  createSession,
+  joinSession,
+  matchesToReveal,
+  resolveParticipants,
+  saveSecrets,
+  loadSecrets
+}
