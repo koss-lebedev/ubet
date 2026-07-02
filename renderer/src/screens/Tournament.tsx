@@ -11,11 +11,19 @@ import {
   DialogTrigger
 } from '@/components/ui/dialog'
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox'
-import { LogOut, Plus, Trophy, UserPlus, Users } from 'lucide-react'
+import { Check, LogOut, Plus, Trophy, UserPlus, Users } from 'lucide-react'
 import { toast } from 'sonner'
-import { send, type LogState, type Match, type MatchPrediction, type Team } from '@/lib/bridge'
+import {
+  send,
+  type LogState,
+  type Match,
+  type MatchPrediction,
+  type Participant,
+  type Team
+} from '@/lib/bridge'
 import { MatchChat } from '@/components/MatchChat'
 import { IdentityBadge } from '@/components/IdentityBadge'
+import { Avatar } from '@/components/Avatar'
 import { COUNTRIES, flagOf, toTeam } from '@/lib/countries'
 import { classify, computeConsensus, parseScore } from '@/lib/consensus'
 import {
@@ -396,14 +404,15 @@ function timeAgo(ts: number): string {
   return `${Math.floor(h / 24)}d ago`
 }
 
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean)
-  if (parts.length === 0) return '?'
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
-  return (parts[0][0] + parts[1][0]).toUpperCase()
-}
-
-function PredictionRow({ match, p }: { match: Match; p: MatchPrediction }) {
+function PredictionRow({
+  match,
+  p,
+  participant
+}: {
+  match: Match
+  p: MatchPrediction
+  participant?: Participant
+}) {
   const parsed = p.status === 'revealed' && p.score ? parseScore(p.score) : null
   const outcome = parsed ? classify(parsed.a, parsed.b) : null
   const avatarBg = outcome === 'first' ? '#3B82F6' : outcome === 'second' ? '#F59E0B' : '#64748B'
@@ -412,12 +421,16 @@ function PredictionRow({ match, p }: { match: Match; p: MatchPrediction }) {
   return (
     <div className='flex items-center gap-3 border-t border-[#1E2A3B] bg-[#121217] px-5 py-3 first:border-t-0'>
       <span
-        className='flex size-10 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white'
-        style={{ backgroundColor: avatarBg }}
+        className='shrink-0 rounded-full'
+        style={{ boxShadow: `0 0 0 2px ${avatarBg}` }}
+        title={participant?.address ?? undefined}
       >
-        {initials(p.authorName)}
+        <Avatar seed={participant?.address ?? p.author} size={36} />
       </span>
-      <span className='flex-1 truncate text-sm font-semibold text-[#F0F6FC]'>{p.authorName}</span>
+      <span className='flex flex-1 items-center gap-1.5 truncate text-sm font-semibold text-[#F0F6FC]'>
+        {p.authorName}
+        {participant?.verified ? <Check className='size-3.5 shrink-0 text-emerald-400' /> : null}
+      </span>
       <div className='flex flex-col items-end gap-1'>
         <div className='flex items-center gap-2'>
           {parsed ? (
@@ -449,10 +462,12 @@ function PredictionRow({ match, p }: { match: Match; p: MatchPrediction }) {
 
 function PredictionsSection({
   match,
-  predictions
+  predictions,
+  participants
 }: {
   match: Match
   predictions: MatchPrediction[]
+  participants: Record<string, Participant>
 }) {
   return (
     <div className='relative flex flex-col overflow-hidden rounded-xl border border-[#1E2A3B]'>
@@ -465,7 +480,9 @@ function PredictionsSection({
       {predictions.length === 0 ? (
         <p className='text-muted-foreground bg-[#121217] px-5 py-4 text-sm'>No predictions.</p>
       ) : (
-        predictions.map((p) => <PredictionRow key={p.author} match={match} p={p} />)
+        predictions.map((p) => (
+          <PredictionRow key={p.author} match={match} p={p} participant={participants[p.author]} />
+        ))
       )}
     </div>
   )
@@ -474,11 +491,13 @@ function PredictionsSection({
 function MatchCard({
   match,
   predictions,
+  participants,
   mine,
   isHost
 }: {
   match: Match
   predictions: MatchPrediction[]
+  participants: Record<string, Participant>
   mine?: { a: number; b: number }
   isHost: boolean
 }) {
@@ -549,7 +568,7 @@ function MatchCard({
               </Button>
             </>
           ) : null}
-          <PredictionsSection match={match} predictions={predictions} />
+          <PredictionsSection match={match} predictions={predictions} participants={participants} />
         </div>
       )}
     </div>
@@ -627,6 +646,7 @@ export function Tournament({ tournamentKey, log }: { tournamentKey: string; log:
                     <MatchCard
                       match={m}
                       predictions={log.predictions[m.id] ?? []}
+                      participants={log.participants}
                       mine={log.mine[m.id]}
                       isHost={log.isHost}
                     />

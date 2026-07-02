@@ -1,5 +1,6 @@
 import { Check } from 'lucide-react'
-import { identicon, shortAddress } from '@/lib/identicon'
+import { Avatar } from '@/components/Avatar'
+import { shortAddress } from '@/lib/identicon'
 
 // Renders a participant as name + deterministic address avatar + short address,
 // with a check when the display name is signed by that address. Collisions on
@@ -17,9 +18,7 @@ export function IdentityBadge({
 }) {
   return (
     <span className='inline-flex items-center gap-1.5'>
-      {address ? (
-        <img src={identicon(address)} alt='' className='size-5 shrink-0 rounded-full' />
-      ) : null}
+      {address ? <Avatar seed={address} size={20} /> : null}
       <span className='truncate font-medium'>{name || shortAddress(address) || 'anonymous'}</span>
       {verified ? (
         <Check className='size-3.5 shrink-0 text-emerald-400' aria-label='signed identity' />

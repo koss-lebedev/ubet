@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { identicon, shortAddress } from '@/lib/identicon'
+import { Avatar } from '@/components/Avatar'
+import { shortAddress } from '@/lib/identicon'
 import { setName as setNameRpc, restoreIdentity, exportRecovery, type Identity } from '@/lib/bridge'
 
 export function IdentitySetup({
@@ -79,9 +80,7 @@ export function IdentitySetup({
         </CardHeader>
         <CardContent className='space-y-4'>
           <div className='flex items-center gap-3 rounded-md border p-3'>
-            {address ? (
-              <img src={identicon(address, 40)} alt='' className='size-10 rounded-full' />
-            ) : null}
+            {address ? <Avatar seed={address} size={40} /> : null}
             <div className='min-w-0'>
               <p className='text-sm font-medium'>{name.trim() || 'Unnamed'}</p>
               <p className='text-muted-foreground truncate font-mono text-xs'>
