@@ -28,7 +28,12 @@ async function loadWdk() {
 }
 
 function typedDataFor({ writerKey, address, name }) {
-  return { domain: DOMAIN, types: TYPES, primaryType: 'Identity', message: { writerKey, address, name: name || '' } }
+  return {
+    domain: DOMAIN,
+    types: TYPES,
+    primaryType: 'Identity',
+    message: { writerKey, address, name: name || '' }
+  }
 }
 
 async function walletFromSeed(seed) {
