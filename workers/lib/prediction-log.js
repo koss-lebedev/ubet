@@ -16,6 +16,20 @@ function padSeq(n) {
   return String(n).padStart(12, '0')
 }
 
+async function appendSystemMessage(view, matchId, text, createdAt) {
+  const seq = (viewValue(await view.get('meta/chatSeq')) || 0) + 1
+  await view.put('meta/chatSeq', seq)
+  await view.put('chat/' + matchId + '/' + padSeq(seq), {
+    matchId,
+    kind: 'system',
+    author: '',
+    authorName: '',
+    text,
+    createdAt,
+    seq
+  })
+}
+
 class PredictionLog {
   constructor({ storeDir, store, bootstrap = null }) {
     this.store = store || new Corestore(storeDir)
@@ -89,16 +103,30 @@ class PredictionLog {
         if (from !== hostKey) continue
         const match = viewValue(await view.get('match/' + v.matchId))
         if (!match) continue
-        await view.put('match/' + v.matchId, { ...match, status: 'locked', lockedAt: v.createdAt })
-      } else if (v.type === 'set-result') {
+        await view.put('match/' + v.matchId, {
+          ...match,
+          status: 'locked',
+          lockedAt: v.createdAt,
+          result: { a: 0, b: 0 }
+        })
+      } else if (v.type === 'update-score') {
         if (from !== hostKey) continue
         const match = viewValue(await view.get('match/' + v.matchId))
         if (!match || match.status !== 'locked') continue
-        await view.put('match/' + v.matchId, {
-          ...match,
-          result: { a: v.a, b: v.b },
-          resultAt: v.createdAt
-        })
+        await view.put('match/' + v.matchId, { ...match, result: { a: v.a, b: v.b } })
+        await appendSystemMessage(view, v.matchId, `Score updated — ${v.a}–${v.b}`, v.createdAt)
+      } else if (v.type === 'finish-match') {
+        if (from !== hostKey) continue
+        const match = viewValue(await view.get('match/' + v.matchId))
+        if (!match || match.status !== 'locked') continue
+        await view.put('match/' + v.matchId, { ...match, status: 'final', finishedAt: v.createdAt })
+        const score = match.result ?? { a: 0, b: 0 }
+        await appendSystemMessage(
+          view,
+          v.matchId,
+          `Match finished — final score ${score.a}–${score.b}`,
+          v.createdAt
+        )
       } else if (v.type === 'chat') {
         const match = viewValue(await view.get('match/' + v.matchId))
         if (!match) continue
@@ -108,6 +136,7 @@ class PredictionLog {
         await view.put('meta/chatSeq', seq)
         await view.put('chat/' + v.matchId + '/' + padSeq(seq), {
           matchId: v.matchId,
+          kind: 'message',
           author: from,
           authorName: v.name,
           text,
@@ -143,8 +172,11 @@ class PredictionLog {
   async lockMatch(matchId, createdAt = Date.now()) {
     await this.base.append({ type: 'lock', matchId, createdAt })
   }
-  async setResult(matchId, a, b, createdAt = Date.now()) {
-    await this.base.append({ type: 'set-result', matchId, a, b, createdAt })
+  async updateScore(matchId, a, b, createdAt = Date.now()) {
+    await this.base.append({ type: 'update-score', matchId, a, b, createdAt })
+  }
+  async finishMatch(matchId, createdAt = Date.now()) {
+    await this.base.append({ type: 'finish-match', matchId, createdAt })
   }
   async chat(matchId, text, name, createdAt = Date.now()) {
     await this.base.append({ type: 'chat', matchId, text, name, createdAt })
@@ -190,6 +222,7 @@ class PredictionLog {
       messages[value.matchId].push({
         author: value.author,
         authorName: value.authorName,
+        kind: value.kind,
         text: value.text,
         createdAt: value.createdAt,
         seq: value.seq
