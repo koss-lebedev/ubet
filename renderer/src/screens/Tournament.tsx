@@ -156,8 +156,8 @@ const TIER_TEXT_CLASS: Record<Tier, string> = {
 }
 
 function ResultEntry({ match }: { match: Match }) {
-  const [a, setA] = useState(match.result ? String(match.result.a) : '')
-  const [b, setB] = useState(match.result ? String(match.result.b) : '')
+  const [a, setA] = useState(match.result ? String(match.result.a) : '0')
+  const [b, setB] = useState(match.result ? String(match.result.b) : '0')
 
   function submit() {
     const na = Number(a)
@@ -166,13 +166,13 @@ function ResultEntry({ match }: { match: Match }) {
       toast('Enter whole numbers for both scores')
       return
     }
-    send({ cmd: 'set-result', matchId: match.id, a: na, b: nb })
+    send({ cmd: 'update-score', matchId: match.id, a: na, b: nb })
   }
 
   return (
     <div className='flex items-end gap-2 rounded-md border border-dashed p-3'>
       <div className='space-y-1'>
-        <Label className='text-xs'>Result {match.teamA.flag}</Label>
+        <Label className='text-xs'>Score {match.teamA.flag}</Label>
         <Input
           type='number'
           min={0}
@@ -193,7 +193,7 @@ function ResultEntry({ match }: { match: Match }) {
         />
       </div>
       <Button className='ml-auto' variant='secondary' onClick={submit}>
-        {match.result ? 'Update result' : 'Submit result'}
+        Update score
       </Button>
     </div>
   )
@@ -288,8 +288,7 @@ const STAGES: { key: Stage; label: string; color: string; bg: string }[] = [
 ]
 
 function stageOf(match: Match): Stage {
-  if (match.result) return 'final'
-  return match.status === 'locked' ? 'locked' : 'open'
+  return match.status
 }
 
 function TeamColumn({ team }: { team: Team }) {
@@ -504,7 +503,19 @@ function MatchCard({
         </div>
       ) : (
         <div className='relative flex flex-col gap-3'>
-          {isHost ? <ResultEntry key={`result-${match.id}`} match={match} /> : null}
+          {isHost && match.status === 'locked' ? (
+            <>
+              <ResultEntry key={`result-${match.id}`} match={match} />
+              <Button
+                size='sm'
+                variant='outline'
+                className='self-start'
+                onClick={() => send({ cmd: 'finish-match', matchId: match.id })}
+              >
+                Finish match
+              </Button>
+            </>
+          ) : null}
           <PredictionsSection match={match} predictions={predictions} />
         </div>
       )}
