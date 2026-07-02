@@ -158,6 +158,8 @@ module.exports = {
       config: {
         build: [
           { entry: 'electron/main.js', config: 'vite.main.config.mjs' },
+          { entry: 'electron/wallet.js', config: 'vite.main.config.mjs' },
+          { entry: 'electron/identity-store.js', config: 'vite.main.config.mjs' },
           { entry: 'electron/preload.js', config: 'vite.preload.config.mjs' }
         ],
         renderer: [{ name: 'main_window', config: 'vite.renderer.config.mjs' }]
