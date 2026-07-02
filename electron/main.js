@@ -82,7 +82,7 @@ function getIdentityStore() {
   if (!identityStorePromise) {
     identityStorePromise = (async () => {
       const store = await openIdentityStore({ dir: path.join(appDataDir(), 'identity'), crypter })
-      await store.loadOrCreate()
+      await store.load()
       return store
     })()
   }
@@ -114,22 +114,26 @@ async function handleWalletRpc(pipe, msg) {
   }
 }
 
-// Renderer identity operations (setup, rename, restore, recovery export).
-ipcMain.handle('identity:get', async () => {
+// Renderer identity operations (choose, create, rename, restore, recovery).
+ipcMain.handle('identity:list', async () => {
   const store = await getIdentityStore()
-  const p = store.getProfile()
-  return { address: p.address, name: p.name }
+  return store.list()
+})
+ipcMain.handle('identity:create', async () => {
+  const store = await getIdentityStore()
+  return store.create()
+})
+ipcMain.handle('identity:select', async (_evt, address) => {
+  const store = await getIdentityStore()
+  return store.select(address)
 })
 ipcMain.handle('identity:setName', async (_evt, name) => {
   const store = await getIdentityStore()
-  await store.setName(name)
-  const p = store.getProfile()
-  return { address: p.address, name: p.name }
+  return store.setName(name)
 })
 ipcMain.handle('identity:restore', async (_evt, phrase) => {
   const store = await getIdentityStore()
-  const r = await store.restore(phrase)
-  return { address: r.address, name: r.name }
+  return store.restore(phrase)
 })
 ipcMain.handle('identity:exportRecovery', async () => {
   const store = await getIdentityStore()

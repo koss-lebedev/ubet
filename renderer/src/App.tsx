@@ -3,7 +3,7 @@ import {
   startWorker,
   onEvent,
   send,
-  getIdentity,
+  listIdentities,
   type Identity,
   type LogState,
   type TournamentEntry
@@ -36,12 +36,13 @@ export default function App() {
   useEffect(() => {
     startWorker()
     send({ cmd: 'list-tournaments' })
-    getIdentity()
-      .then((id) => {
-        setIdentity(id)
-        if (!id.name) setScreen('setup')
+    listIdentities()
+      .then((l) => {
+        const active = l.active ? (l.identities.find((i) => i.address === l.active) ?? null) : null
+        setIdentity(active)
+        if (!active || !active.name) setScreen('setup')
       })
-      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load identity'))
+      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load identities'))
     const off = onEvent((e) => {
       switch (e.evt) {
         case 'tournament-ready':
@@ -70,7 +71,6 @@ export default function App() {
   if (screen === 'setup') {
     return (
       <IdentitySetup
-        identity={identity}
         onDone={(id) => {
           setIdentity(id)
           setScreen('landing')

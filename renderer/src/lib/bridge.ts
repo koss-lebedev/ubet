@@ -36,6 +36,8 @@ export type Participant = { address: string | null; name: string; verified: bool
 
 export type Identity = { address: string; name: string }
 
+export type IdentityList = { active: string | null; identities: Identity[] }
+
 export type LogState = {
   matches: Match[]
   predictions: Record<string, MatchPrediction[]>
@@ -81,7 +83,9 @@ type Bridge = {
   startWorker: (spec: string) => unknown
   writeWorkerIPC: (spec: string, data: string) => unknown
   onWorkerIPC: (spec: string, listener: (data: unknown) => void) => () => void
-  getIdentity: () => Promise<Identity>
+  listIdentities: () => Promise<IdentityList>
+  createIdentity: () => Promise<Identity>
+  selectIdentity: (address: string) => Promise<Identity>
   setName: (name: string) => Promise<Identity>
   restoreIdentity: (phrase: string) => Promise<Identity>
   exportRecovery: () => Promise<string>
@@ -138,8 +142,16 @@ export function pkgVersion(): string {
   }
 }
 
-export function getIdentity(): Promise<Identity> {
-  return nativeBridge.getIdentity()
+export function listIdentities(): Promise<IdentityList> {
+  return nativeBridge.listIdentities()
+}
+
+export function createIdentity(): Promise<Identity> {
+  return nativeBridge.createIdentity()
+}
+
+export function selectIdentity(address: string): Promise<Identity> {
+  return nativeBridge.selectIdentity(address)
 }
 
 export function setName(name: string): Promise<Identity> {

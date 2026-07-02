@@ -35,7 +35,9 @@ contextBridge.exposeInMainWorld('bridge', {
   writeWorkerIPC: (specifier, data) => {
     return ipcRenderer.invoke('pear:worker:writeIPC:' + specifier, data)
   },
-  getIdentity: () => ipcRenderer.invoke('identity:get'),
+  listIdentities: () => ipcRenderer.invoke('identity:list'),
+  createIdentity: () => ipcRenderer.invoke('identity:create'),
+  selectIdentity: (address) => ipcRenderer.invoke('identity:select', address),
   setName: (name) => ipcRenderer.invoke('identity:setName', name),
   restoreIdentity: (phrase) => ipcRenderer.invoke('identity:restore', phrase),
   exportRecovery: () => ipcRenderer.invoke('identity:exportRecovery')

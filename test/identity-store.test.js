@@ -17,40 +17,75 @@ const crypter = {
   }
 }
 
-test('first run creates a wallet and persists profile', async (t) => {
-  const dir = tmp()
-  const store = await openIdentityStore({ dir, crypter })
-  const { address } = await store.loadOrCreate()
-  t.ok(address.startsWith('0x'))
-  t.ok(fs.existsSync(path.join(dir, 'wallet.enc')))
-  t.is(store.getProfile().name, '')
+test('a fresh store has no identities and no active selection', async (t) => {
+  const s = await openIdentityStore({ dir: tmp(), crypter })
+  const list = await s.load()
+  t.is(list.active, null)
+  t.alike(list.identities, [])
+  t.is(s.active(), null)
 })
 
-test('reopening the same dir yields the same address', async (t) => {
+test('create adds an identity, makes it active, and persists', async (t) => {
   const dir = tmp()
   const a = await openIdentityStore({ dir, crypter })
-  const r1 = await a.loadOrCreate()
+  await a.load()
+  const created = await a.create()
+  t.ok(created.address.startsWith('0x'))
+  t.is(created.name, '')
+  t.is(a.list().active, created.address)
+
   const b = await openIdentityStore({ dir, crypter })
-  const r2 = await b.loadOrCreate()
-  t.is(r1.address, r2.address)
+  const list = await b.load()
+  t.is(list.active, created.address)
+  t.is(list.identities.length, 1)
+  t.is(b.active().address, created.address)
 })
 
-test('setName persists across reopen', async (t) => {
+test('setName names the active identity and persists', async (t) => {
   const dir = tmp()
   const a = await openIdentityStore({ dir, crypter })
-  await a.loadOrCreate()
+  await a.load()
+  await a.create()
   await a.setName('Kostya')
+  t.is(a.active().name, 'Kostya')
+
   const b = await openIdentityStore({ dir, crypter })
-  await b.loadOrCreate()
-  t.is(b.getProfile().name, 'Kostya')
+  await b.load()
+  t.is(b.active().name, 'Kostya')
 })
 
-test('restore with a valid phrase reproduces the address; invalid phrase throws', async (t) => {
-  const a = await openIdentityStore({ dir: tmp(), crypter })
-  await a.loadOrCreate()
-  const phrase = a.getRecoveryPhrase()
-  const b = await openIdentityStore({ dir: tmp(), crypter })
-  const restored = await b.restore(phrase)
-  t.is(restored.address, a.getProfile().address)
-  await t.exception(() => b.restore('garbage not a mnemonic'))
+test('multiple identities coexist; select switches the active wallet', async (t) => {
+  const dir = tmp()
+  const s = await openIdentityStore({ dir, crypter })
+  await s.load()
+  const one = await s.create()
+  await s.setName('One')
+  const two = await s.create()
+  await s.setName('Two')
+  t.is(s.list().identities.length, 2)
+  t.is(s.list().active, two.address)
+
+  await s.select(one.address)
+  t.is(s.active().address, one.address)
+  t.is(s.getRecoveryPhrase().split(' ').length, 24) // active wallet is loaded
+})
+
+test('restore imports a seed as an identity and activates it', async (t) => {
+  const src = await openIdentityStore({ dir: tmp(), crypter })
+  await src.load()
+  await src.create()
+  const phrase = src.getRecoveryPhrase()
+
+  const dst = await openIdentityStore({ dir: tmp(), crypter })
+  await dst.load()
+  const restored = await dst.restore(phrase)
+  t.is(restored.address, src.active().address)
+  t.is(dst.list().active, restored.address)
+  await t.exception(() => dst.restore('garbage not a mnemonic'))
+})
+
+test('selecting an unknown identity throws', async (t) => {
+  const s = await openIdentityStore({ dir: tmp(), crypter })
+  await s.load()
+  await t.exception(() => s.select('0xdeadbeef'))
 })
