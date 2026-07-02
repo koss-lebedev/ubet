@@ -140,6 +140,7 @@ function getWorker(specifier) {
   if (workers.has(specifier)) return workers.get(specifier)
   if (pearStore) console.log('pear store: ' + pearStore)
   const dir = appDataDir()
+  const appPath = getAppPath()
 
   const extension = isLinux ? '.AppImage' : isMac ? '.app' : '.msix'
 
@@ -175,7 +176,10 @@ function getWorker(specifier) {
     } catch {
       return
     }
-    if (!msg || (msg.cmd !== 'wallet-identity' && msg.cmd !== 'wallet-sign' && msg.cmd !== 'wallet-verify')) {
+    if (
+      !msg ||
+      (msg.cmd !== 'wallet-identity' && msg.cmd !== 'wallet-sign' && msg.cmd !== 'wallet-verify')
+    ) {
       return
     }
     handleWalletRpc(pipe, msg)
