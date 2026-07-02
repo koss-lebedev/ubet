@@ -1,24 +1,28 @@
 import { useEffect, useState } from 'react'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { send, type TournamentEntry } from '@/lib/bridge'
+import { IdentityBadge } from '@/components/IdentityBadge'
+import { send, type Identity, type TournamentEntry } from '@/lib/bridge'
 
 const HEX64 = /^[0-9a-fA-F]{64}$/
 
 export function Landing({
   error,
   onError,
-  tournaments
+  identity,
+  tournaments,
+  onManageIdentity
 }: {
   error: string
   onError: (m: string) => void
+  identity: Identity | null
   tournaments: TournamentEntry[]
+  onManageIdentity: () => void
 }) {
-  const [name, setName] = useState('')
   const [key, setKey] = useState('')
   const [pendingAction, setPendingAction] = useState<string | null>(null)
   const hasTournaments = tournaments.length > 0
@@ -28,38 +32,25 @@ export function Landing({
   }, [error])
 
   function create() {
-    if (!name.trim()) {
-      onError('Enter a display name')
-      return
-    }
     onError('')
     setPendingAction('create')
-    send({ cmd: 'create-tournament', name: name.trim() })
+    send({ cmd: 'create-tournament' })
   }
 
   function join() {
-    if (!name.trim()) {
-      onError('Enter a display name')
-      return
-    }
     if (!HEX64.test(key.trim())) {
       onError('Tournament key must be 64 hex characters')
       return
     }
     onError('')
     setPendingAction('join')
-    send({ cmd: 'join-tournament', name: name.trim(), key: key.trim() })
+    send({ cmd: 'join-tournament', key: key.trim() })
   }
 
   function rejoin(tournament: TournamentEntry) {
     onError('')
     setPendingAction(`rejoin:${tournament.storeDir}`)
-    send({
-      cmd: 'rejoin-tournament',
-      storeDir: tournament.storeDir,
-      key: tournament.key,
-      name: tournament.name
-    })
+    send({ cmd: 'rejoin-tournament', storeDir: tournament.storeDir, key: tournament.key })
   }
 
   return (
@@ -70,6 +61,19 @@ export function Landing({
           <CardDescription>Create a tournament and share the key, or join one.</CardDescription>
         </CardHeader>
         <CardContent className='space-y-4'>
+          <button
+            type='button'
+            onClick={onManageIdentity}
+            className='flex w-full items-center justify-between rounded-md border px-3 py-2 text-left hover:bg-muted'
+          >
+            <IdentityBadge
+              address={identity?.address ?? null}
+              name={identity?.name ?? ''}
+              verified={false}
+            />
+            <Pencil className='text-muted-foreground size-4 shrink-0' />
+          </button>
+
           <Tabs defaultValue={hasTournaments ? 'resume' : 'create'}>
             <TabsList className='w-full'>
               {hasTournaments ? <TabsTrigger value='resume'>Resume</TabsTrigger> : null}
@@ -104,15 +108,9 @@ export function Landing({
             ) : null}
 
             <TabsContent value='create' className='space-y-4'>
-              <div className='space-y-2'>
-                <Label htmlFor='name-create'>Your display name</Label>
-                <Input
-                  id='name-create'
-                  placeholder='e.g. Kostya'
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
-              </div>
+              <p className='text-muted-foreground text-sm'>
+                Start a new tournament and invite others with its key.
+              </p>
               <Button className='w-full' disabled={pendingAction !== null} onClick={create}>
                 {pendingAction === 'create' ? <Loader2 className='size-4 animate-spin' /> : null}
                 Create tournament
@@ -120,15 +118,6 @@ export function Landing({
             </TabsContent>
 
             <TabsContent value='join' className='space-y-4'>
-              <div className='space-y-2'>
-                <Label htmlFor='name-join'>Your display name</Label>
-                <Input
-                  id='name-join'
-                  placeholder='e.g. Kostya'
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
-              </div>
               <div className='space-y-2'>
                 <Label htmlFor='join-key'>Tournament key</Label>
                 <Input

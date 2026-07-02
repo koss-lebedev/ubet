@@ -11,10 +11,11 @@ import {
   DialogTrigger
 } from '@/components/ui/dialog'
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox'
-import { LogOut, Plus, Trophy, UserPlus } from 'lucide-react'
+import { LogOut, Plus, Trophy, UserPlus, Users } from 'lucide-react'
 import { toast } from 'sonner'
 import { send, type LogState, type Match, type MatchPrediction, type Team } from '@/lib/bridge'
 import { MatchChat } from '@/components/MatchChat'
+import { IdentityBadge } from '@/components/IdentityBadge'
 import { COUNTRIES, flagOf, toTeam } from '@/lib/countries'
 import { classify, computeConsensus, parseScore } from '@/lib/consensus'
 import {
@@ -273,6 +274,38 @@ function Leaderboard({ log }: { log: LogState }) {
               </tbody>
             </table>
           </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function Players({ log }: { log: LogState }) {
+  const entries = Object.entries(log.participants)
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button size='icon' variant='glass' className='size-11' title='Players'>
+          <Users className='size-5' />
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Players</DialogTitle>
+        </DialogHeader>
+        {entries.length === 0 ? (
+          <p className='text-muted-foreground text-sm'>No players yet.</p>
+        ) : (
+          <ul className='space-y-2'>
+            {entries.map(([writerKey, p]) => (
+              <li key={writerKey} className='flex items-center justify-between gap-2'>
+                <IdentityBadge address={p.address} name={p.name} verified={p.verified} />
+                {writerKey === log.localAuthor ? (
+                  <span className='text-muted-foreground text-xs'>you</span>
+                ) : null}
+              </li>
+            ))}
+          </ul>
         )}
       </DialogContent>
     </Dialog>
@@ -552,6 +585,8 @@ export function Tournament({ tournamentKey, log }: { tournamentKey: string; log:
         </Button>
 
         {log.isHost ? <AddMatch /> : null}
+
+        <Players log={log} />
 
         <Leaderboard log={log} />
 
