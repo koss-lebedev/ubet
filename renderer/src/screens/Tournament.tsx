@@ -415,18 +415,11 @@ function PredictionRow({
 }) {
   const parsed = p.status === 'revealed' && p.score ? parseScore(p.score) : null
   const outcome = parsed ? classify(parsed.a, parsed.b) : null
-  const avatarBg = outcome === 'first' ? '#3B82F6' : outcome === 'second' ? '#F59E0B' : '#64748B'
   const scoreColor = outcome === 'first' ? '#3B82F6' : outcome === 'second' ? '#F59E0B' : '#6B7280'
   const tier: Tier | null = match.result && parsed ? gradePrediction(parsed, match.result) : null
   return (
     <div className='flex items-center gap-3 border-t border-[#1E2A3B] bg-[#121217] px-5 py-3 first:border-t-0'>
-      <span
-        className='shrink-0 rounded-full'
-        style={{ boxShadow: `0 0 0 2px ${avatarBg}` }}
-        title={participant?.address ?? undefined}
-      >
-        <Avatar seed={participant?.address ?? p.author} size={36} />
-      </span>
+      <Avatar seed={participant?.address ?? p.author} size={40} />
       <span className='flex flex-1 items-center gap-1.5 truncate text-sm font-semibold text-[#F0F6FC]'>
         {p.authorName}
         {participant?.verified ? <Check className='size-3.5 shrink-0 text-emerald-400' /> : null}
@@ -505,72 +498,73 @@ function MatchCard({
   const showVotes = match.status === 'locked' && computeConsensus(predictions).revealedCount >= 2
 
   return (
-    <div className='relative flex flex-col gap-7 overflow-hidden rounded-xl border border-[#1E2A3B] bg-[#0D0C12] p-8'>
-      <div
-        aria-hidden
-        className='pointer-events-none absolute inset-0'
-        style={{
-          background:
-            'radial-gradient(130% 100% at 50% 42%, rgba(124,58,237,0.25) 0%, rgba(124,58,237,0) 70%)'
-        }}
-      />
+    <div className='flex flex-col gap-6'>
+      <div className='relative flex flex-col gap-7 overflow-hidden rounded-xl border border-[#1E2A3B] bg-[#0D0C12] p-8'>
+        <div
+          aria-hidden
+          className='pointer-events-none absolute inset-0'
+          style={{
+            background:
+              'radial-gradient(130% 100% at 50% 42%, rgba(124,58,237,0.25) 0%, rgba(124,58,237,0) 70%)'
+          }}
+        />
 
-      <div className='relative flex items-start justify-between gap-4 py-8'>
-        <TeamColumn team={match.teamA} />
-        <div className='flex flex-col items-center gap-2.5 pt-5'>
-          {match.result ? (
-            <span className='text-[52px] leading-none font-extrabold text-[#F0F6FC]'>
-              {match.result.a} - {match.result.b}
-            </span>
-          ) : (
-            <span className='text-4xl font-bold text-[#4B5563]'>vs</span>
-          )}
-          <ScoreStatusBadge stage={stage} />
+        <div className='relative flex items-start justify-between gap-4 py-8'>
+          <TeamColumn team={match.teamA} />
+          <div className='flex flex-col items-center gap-2.5 pt-5'>
+            {match.result ? (
+              <span className='text-[52px] leading-none font-extrabold text-[#F0F6FC]'>
+                {match.result.a} - {match.result.b}
+              </span>
+            ) : (
+              <span className='text-4xl font-bold text-[#4B5563]'>vs</span>
+            )}
+            <ScoreStatusBadge stage={stage} />
+          </div>
+          <TeamColumn team={match.teamB} />
         </div>
-        <TeamColumn team={match.teamB} />
-      </div>
 
-      <div className='relative h-px w-full bg-[#1E2A3B]' />
+        <div className='relative h-px w-full bg-[#1E2A3B]' />
 
-      {showVotes ? <VoteDistribution match={match} predictions={predictions} /> : null}
+        {showVotes ? <VoteDistribution match={match} predictions={predictions} /> : null}
 
-      {match.status === 'open' ? (
-        <div className='relative flex flex-col gap-3'>
-          <ScoreEntry key={match.id} match={match} mine={mine} />
-          {isHost ? (
-            <Button
-              size='sm'
-              variant='outline'
-              className='self-start'
-              onClick={() => send({ cmd: 'lock-match', matchId: match.id })}
-            >
-              Lock match
-            </Button>
-          ) : null}
-          {predictions.length > 0 ? (
-            <p className='text-sm text-muted-foreground'>
-              Committed: {predictions.map((p) => p.authorName).join(' · ')}
-            </p>
-          ) : null}
-        </div>
-      ) : (
-        <div className='relative flex flex-col gap-3'>
-          {isHost && match.status === 'locked' ? (
-            <>
-              <ResultEntry key={`result-${match.id}`} match={match} />
+        {match.status === 'open' ? (
+          <div className='relative flex flex-col gap-3'>
+            <ScoreEntry key={match.id} match={match} mine={mine} />
+            {isHost ? (
               <Button
                 size='sm'
                 variant='outline'
                 className='self-start'
-                onClick={() => send({ cmd: 'finish-match', matchId: match.id })}
+                onClick={() => send({ cmd: 'lock-match', matchId: match.id })}
               >
-                Finish match
+                Lock match
               </Button>
-            </>
-          ) : null}
-          <PredictionsSection match={match} predictions={predictions} participants={participants} />
-        </div>
-      )}
+            ) : null}
+            {predictions.length > 0 ? (
+              <p className='text-sm text-muted-foreground'>
+                Committed: {predictions.map((p) => p.authorName).join(' · ')}
+              </p>
+            ) : null}
+          </div>
+        ) : isHost && match.status === 'locked' ? (
+          <div className='relative flex flex-col gap-3'>
+            <ResultEntry key={`result-${match.id}`} match={match} />
+            <Button
+              size='sm'
+              variant='outline'
+              className='self-start'
+              onClick={() => send({ cmd: 'finish-match', matchId: match.id })}
+            >
+              Finish match
+            </Button>
+          </div>
+        ) : null}
+      </div>
+
+      {match.status !== 'open' ? (
+        <PredictionsSection match={match} predictions={predictions} participants={participants} />
+      ) : null}
     </div>
   )
 }
