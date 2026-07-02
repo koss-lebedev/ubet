@@ -12,16 +12,17 @@ Each tournament is backed by an Autobase log. Every participant appends signed J
 
 All entries share a `type` discriminator field. Entries marked **host only** are ignored unless appended from the tournament's host key.
 
-| `type`       | Appended by | When                                                               | Payload (besides `type`)               |
-| ------------ | ----------- | ------------------------------------------------------------------ | -------------------------------------- |
-| `init`       | Host        | Once, at tournament creation                                       | `host`                                 |
-| `add-writer` | Host        | Admitting a participant into the multi-writer set                  | `key`, `name`                          |
-| `add-match`  | Host only   | Registering a new match                                            | `id`, `teamA`, `teamB`, `createdAt`    |
-| `commit`     | Participant | Locking in a hidden prediction while the match is `open`           | `matchId`, `hash`, `name`, `createdAt` |
-| `lock`       | Host only   | Closing a match to new predictions                                 | `matchId`, `createdAt`                 |
-| `set-result` | Host only   | Recording/correcting the final score of a `locked` match           | `matchId`, `a`, `b`, `createdAt`       |
-| `reveal`     | Participant | Auto-appended once the match is `locked`, disclosing score + nonce | `matchId`, `score`, `nonce`            |
-| `chat`       | Participant | Posting a message to a match's chat thread                         | `matchId`, `text`, `name`, `createdAt` |
+| `type`         | Appended by | When                                                               | Payload (besides `type`)               |
+| -------------- | ----------- | ------------------------------------------------------------------ | -------------------------------------- |
+| `init`         | Host        | Once, at tournament creation                                       | `host`                                 |
+| `add-writer`   | Host        | Admitting a participant into the multi-writer set                  | `key`, `name`                          |
+| `add-match`    | Host only   | Registering a new match                                            | `id`, `teamA`, `teamB`, `createdAt`    |
+| `commit`       | Participant | Locking in a hidden prediction while the match is `open`           | `matchId`, `hash`, `name`, `createdAt` |
+| `lock`         | Host only   | Closing a match to new predictions                                 | `matchId`, `createdAt`                 |
+| `update-score` | Host only   | Recording the current score of a `locked` match; repeatable        | `matchId`, `a`, `b`, `createdAt`       |
+| `finish-match` | Host only   | Ending a `locked` match; no further `update-score` accepted after  | `matchId`, `createdAt`                 |
+| `reveal`       | Participant | Auto-appended once the match is `locked`, disclosing score + nonce | `matchId`, `score`, `nonce`            |
+| `chat`         | Participant | Posting a message to a match's chat thread                         | `matchId`, `text`, `name`, `createdAt` |
 
 Notes:
 
@@ -30,6 +31,8 @@ Notes:
 - `hash = BLAKE2b(score + '\n' + nonce)` where `score` is `"<a>-<b>"` (e.g. `"2-1"`) and `nonce` is 32 random bytes encoded as hex. `reveal` is verified against the earlier `commit` hash before the prediction is marked valid.
 - `createdAt` is a wall-clock epoch-millis timestamp supplied by the writer; used to order the chat feed and its derived system events.
 - `chat.text` is trimmed and capped at 2000 characters; empty or over-long messages are dropped, as are entries referencing an unknown `matchId`.
+- Locking a match seeds its score at `0-0`; `update-score` can be called any number of times afterward while the match is `locked`. `finish-match` moves it to `final`, after which further `update-score` calls are rejected.
+- Chat entries carry a `kind` of `message` (a real participant message) or `system` (an auto-generated announcement for `update-score`/`finish-match`), both delivered through the same ordered chat stream.
 
 ---
 
@@ -37,14 +40,14 @@ Notes:
 
 The `apply` function reduces the linearised log into a Hyperbee key/value store:
 
-| Key                           | Value                                                                                                                    |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `meta/host`                   | `"<writer-key-hex>"`                                                                                                     |
-| `meta/chatSeq`                | `<number>` — monotonic counter giving chat messages a total order                                                        |
-| `writer/<key>`                | `{ "name": "<display-name>" }`                                                                                           |
-| `match/<id>`                  | `{ "id", "teamA", "teamB", "status": "open"\|"locked", "createdAt", "lockedAt"?, "result"?: { "a", "b" }, "resultAt"? }` |
-| `pred/<matchId>/<author-key>` | `{ "matchId", "author", "authorName", "hash", "status": "committed"\|"revealed"\|"invalid", "score"?, "committedAt" }`   |
-| `chat/<matchId>/<padded-seq>` | `{ "matchId", "author", "authorName", "text", "createdAt", "seq" }`                                                      |
+| Key                           | Value                                                                                                                               |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `meta/host`                   | `"<writer-key-hex>"`                                                                                                                |
+| `meta/chatSeq`                | `<number>` — monotonic counter giving chat messages a total order                                                                   |
+| `writer/<key>`                | `{ "name": "<display-name>" }`                                                                                                      |
+| `match/<id>`                  | `{ "id", "teamA", "teamB", "status": "open"\|"locked"\|"final", "createdAt", "lockedAt"?, "result"?: { "a", "b" }, "finishedAt"? }` |
+| `pred/<matchId>/<author-key>` | `{ "matchId", "author", "authorName", "hash", "status": "committed"\|"revealed"\|"invalid", "score"?, "committedAt" }`              |
+| `chat/<matchId>/<padded-seq>` | `{ "matchId", "kind": "message"\|"system", "author", "authorName", "text", "createdAt", "seq" }`                                    |
 
 ---
 
