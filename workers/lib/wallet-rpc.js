@@ -29,6 +29,9 @@ function createWalletRpc({ send, onReply }) {
   }
 
   return {
+    getIdentity() {
+      return request({ cmd: 'wallet-identity' })
+    },
     sign(payload) {
       return request({ cmd: 'wallet-sign', payload })
     },

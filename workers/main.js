@@ -9,8 +9,25 @@ const crypto = require('hypercore-crypto')
 const { writeManifest, listManifests } = require('./lib/tournament-manifest.js')
 
 const { createSession, joinSession } = require('./lib/session.js')
+const { createWalletRpc } = require('./lib/wallet-rpc.js')
 
 const pipe = new FramedStream(Bare.IPC)
+
+// Wallet operations (identity, signing, verification) live in Electron main.
+// The worker delegates over the pipe; replies arrive as { evt:'wallet-result' }.
+const walletRpc = createWalletRpc({
+  send: (msg) => pipe.write(JSON.stringify(msg)),
+  onReply: (handler) =>
+    pipe.on('data', (data) => {
+      let msg = null
+      try {
+        msg = JSON.parse(data.toString())
+      } catch {
+        return
+      }
+      handler(msg)
+    })
+})
 
 let session = null
 
@@ -40,6 +57,7 @@ function wireState() {
       matches: s.matches,
       predictions: s.predictions,
       messages: s.messages,
+      participants: s.participants,
       mine: s.mine,
       host: s.host,
       isHost: s.isHost,
@@ -107,20 +125,24 @@ pipe.on('data', async (data) => {
   try {
     if (msg.cmd === 'create-tournament') {
       await stopSession()
+      const identity = await walletRpc.getIdentity()
       const tournamentId = b4a.toString(crypto.randomBytes(16), 'hex')
       const storeDir = path.join(tournamentsDir(), tournamentId)
-      session = await createSession({ name: msg.name, storeDir })
+      session = await createSession({ identity, walletRpc, storeDir })
       wireState()
       await session.start()
-      await writeManifest(storeDir, { key: session.key, name: msg.name })
+      await session.publishIdentity()
+      await writeManifest(storeDir, { key: session.key, name: identity.name })
       sendEvent({ evt: 'tournament-ready', key: session.key })
     } else if (msg.cmd === 'join-tournament') {
       await stopSession()
+      const identity = await walletRpc.getIdentity()
       const storeDir = path.join(tournamentsDir(), msg.key)
-      session = await joinSession({ name: msg.name, key: msg.key, storeDir })
+      session = await joinSession({ identity, walletRpc, key: msg.key, storeDir })
       wireState()
       await session.start()
-      await writeManifest(storeDir, { key: msg.key, name: msg.name })
+      await session.publishIdentity()
+      await writeManifest(storeDir, { key: msg.key, name: identity.name })
       sendEvent({ evt: 'tournament-ready', key: session.key })
     } else if (msg.cmd === 'leave-tournament') {
       await stopSession()
@@ -142,9 +164,11 @@ pipe.on('data', async (data) => {
       sendEvent({ evt: 'tournaments-list', tournaments })
     } else if (msg.cmd === 'rejoin-tournament') {
       await stopSession()
-      session = await joinSession({ name: msg.name, key: msg.key, storeDir: msg.storeDir })
+      const identity = await walletRpc.getIdentity()
+      session = await joinSession({ identity, walletRpc, key: msg.key, storeDir: msg.storeDir })
       wireState()
       await session.start()
+      await session.publishIdentity()
       sendEvent({ evt: 'tournament-ready', key: session.key })
     }
   } catch (err) {

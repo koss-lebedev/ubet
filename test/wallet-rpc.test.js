@@ -35,6 +35,16 @@ test('an error reply rejects the promise', async (t) => {
   await t.exception(() => p)
 })
 
+test('getIdentity resolves with the address/name result', async (t) => {
+  let handler = null
+  const sent = []
+  const rpc = createWalletRpc({ send: (m) => sent.push(m), onReply: (h) => (handler = h) })
+  const p = rpc.getIdentity()
+  t.is(sent[0].cmd, 'wallet-identity')
+  handler({ evt: 'wallet-result', id: sent[0].id, ok: true, result: { address: '0xA', name: 'K' } })
+  t.alike(await p, { address: '0xA', name: 'K' })
+})
+
 test('unrelated replies are ignored', async (t) => {
   let handler = null
   const sent = []
