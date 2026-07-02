@@ -77,7 +77,21 @@ class PredictionLog {
         await view.put('meta/host', v.host)
       } else if (v.type === 'add-writer') {
         await host.addWriter(b4a.from(v.key, 'hex'), { indexer: true })
-        await view.put('writer/' + v.key, { name: v.name })
+        const prevW = viewValue(await view.get('writer/' + v.key)) || {}
+        await view.put('writer/' + v.key, { ...prevW, name: v.name })
+      } else if (v.type === 'identity') {
+        // Author-match replay guard: the binding's writerKey must be the entry's
+        // actual Autobase author. Signature verification is NOT done here (the
+        // reducer can't reach WDK in main) — it is a local per-node concern
+        // computed in the Session and merged into participants at snapshot time.
+        if (v.writerKey !== from) continue
+        const prevW = viewValue(await view.get('writer/' + v.writerKey)) || {}
+        await view.put('writer/' + v.writerKey, {
+          ...prevW,
+          address: v.address,
+          name: v.name || '',
+          sig: v.sig
+        })
       } else if (v.type === 'add-match') {
         if (from !== hostKey) continue
         if (viewValue(await view.get('match/' + v.id)) !== null) continue
@@ -163,6 +177,9 @@ class PredictionLog {
   async addWriter(keyHex, name) {
     await this.base.append({ type: 'add-writer', key: keyHex, name })
   }
+  async publishIdentity(writerKey, address, name, sig, createdAt = Date.now()) {
+    await this.base.append({ type: 'identity', writerKey, address, name, sig, createdAt })
+  }
   async addMatch(id, teamA, teamB, createdAt) {
     await this.base.append({ type: 'add-match', id, teamA, teamB, createdAt })
   }
@@ -228,10 +245,23 @@ class PredictionLog {
         seq: value.seq
       })
     }
+    const participants = {}
+    for await (const { key, value } of this.base.view.createReadStream({
+      gte: 'writer/',
+      lt: 'writer0'
+    })) {
+      const writerKey = key.slice('writer/'.length)
+      participants[writerKey] = {
+        address: value.address || null,
+        name: value.name || '',
+        sig: value.sig || null
+      }
+    }
     return {
       matches,
       predictions,
       messages,
+      participants,
       host,
       isHost: this.isHost,
       writable: this.writable,

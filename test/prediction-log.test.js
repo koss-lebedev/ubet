@@ -425,3 +425,24 @@ test('chat text is trimmed', async (t) => {
   t.is((await host.snapshot()).messages.m1[0].text, 'spaced')
   await destroy()
 })
+
+test('identity entry with matching author is stored in participants', async (t) => {
+  const { host, joiner, destroy } = await pair()
+  const wk = host.localWriterKey
+  await host.publishIdentity(wk, '0xAddr', 'Kostya', '0xsig', Date.now())
+  await pump(host, joiner)
+  const snap = await joiner.snapshot()
+  t.is(snap.participants[wk].address, '0xAddr')
+  t.is(snap.participants[wk].name, 'Kostya')
+  t.is(snap.participants[wk].sig, '0xsig')
+  await destroy()
+})
+
+test('identity entry with mismatched author is dropped (replay guard)', async (t) => {
+  const { host, joiner, destroy } = await pair()
+  const victim = 'a'.repeat(64)
+  await host.publishIdentity(victim, '0xAddr', 'Victim', '0xsig', Date.now())
+  await pump(host, joiner)
+  t.absent((await joiner.snapshot()).participants[victim])
+  await destroy()
+})
