@@ -12,20 +12,20 @@ const { randomNonce, commitHash } = require('./commit-reveal.js')
 
 const CONTROL_PROTOCOL = 'ubet/control/1'
 
-async function saveSecrets (secretsPath, secrets) {
+async function saveSecrets(secretsPath, secrets) {
   const obj = {}
   for (const [id, secret] of secrets) obj[id] = secret
   await fs.writeFile(secretsPath, JSON.stringify(obj), 'utf-8')
 }
 
-async function loadSecrets (secretsPath, secrets) {
+async function loadSecrets(secretsPath, secrets) {
   try {
     const data = JSON.parse(await fs.readFile(secretsPath, 'utf-8'))
     for (const [id, secret] of Object.entries(data)) secrets.set(id, secret)
   } catch {}
 }
 
-function matchesToReveal (secretMatchIds, matches, revealed) {
+function matchesToReveal(secretMatchIds, matches, revealed) {
   const ids = new Set(secretMatchIds)
   return matches
     .filter((m) => m.status === 'locked' && ids.has(m.id) && !revealed.has(m.id))
@@ -33,7 +33,7 @@ function matchesToReveal (secretMatchIds, matches, revealed) {
 }
 
 class Session {
-  constructor ({ log, name, storeDir }) {
+  constructor({ log, name, storeDir }) {
     this.log = log
     this.name = name
     this.storeDir = storeDir
@@ -45,21 +45,26 @@ class Session {
     this._onState = () => {}
     this.room = new Room({
       swarm: this.swarm,
-      onStatus: (s) => { this._status = s; this._emit() },
+      onStatus: (s) => {
+        this._status = s
+        this._emit()
+      },
       onConnection: (conn) => this._onConnection(conn)
     })
     this.log.onUpdate(() => this._emit())
   }
 
-  get key () { return this.log.key }
+  get key() {
+    return this.log.key
+  }
 
-  async start () {
+  async start() {
     await loadSecrets(this._secretsPath, this.secrets)
     await this.room.join(this.log.key)
     return this
   }
 
-  _onConnection (conn) {
+  _onConnection(conn) {
     this.log.replicate(conn)
     const mux = Protomux.from(conn)
     const channel = mux.createChannel({ protocol: CONTROL_PROTOCOL })
@@ -67,9 +72,15 @@ class Session {
       encoding: c.string,
       onmessage: async (str) => {
         let peer
-        try { peer = JSON.parse(str) } catch { return }
+        try {
+          peer = JSON.parse(str)
+        } catch {
+          return
+        }
         if (this.log.isHost && peer.key && peer.key !== this.log.localWriterKey) {
-          try { await this.log.addWriter(peer.key, peer.name) } catch {}
+          try {
+            await this.log.addWriter(peer.key, peer.name)
+          } catch {}
         }
       }
     })
@@ -77,12 +88,12 @@ class Session {
     message.send(JSON.stringify({ key: this.log.localWriterKey, name: this.name }))
   }
 
-  async addMatch (teamA, teamB) {
+  async addMatch(teamA, teamB) {
     const id = randomNonce().slice(0, 16)
     await this.log.addMatch(id, teamA.code, teamB.code, Date.now())
   }
 
-  async commit (matchId, a, b) {
+  async commit(matchId, a, b) {
     const score = a + '-' + b
     const nonce = randomNonce()
     this.secrets.set(matchId, { a, b, nonce })
@@ -94,15 +105,24 @@ class Session {
     }
   }
 
-  async lockMatch (matchId) { await this.log.lockMatch(matchId) }
+  async lockMatch(matchId) {
+    await this.log.lockMatch(matchId)
+  }
 
-  async setResult (matchId, a, b) { await this.log.setResult(matchId, a, b) }
+  async setResult(matchId, a, b) {
+    await this.log.setResult(matchId, a, b)
+  }
 
-  async sendMessage (matchId, text) { await this.log.chat(matchId, text, this.name) }
+  async sendMessage(matchId, text) {
+    await this.log.chat(matchId, text, this.name)
+  }
 
-  onState (cb) { this._onState = cb; this._emit() }
+  onState(cb) {
+    this._onState = cb
+    this._emit()
+  }
 
-  async _emit () {
+  async _emit() {
     const snap = await this.log.snapshot()
     for (const matchId of matchesToReveal([...this.secrets.keys()], snap.matches, this._revealed)) {
       this._revealed.add(matchId)
@@ -119,19 +139,25 @@ class Session {
     this._onState({ ...snap, mine, status: this._status })
   }
 
-  async close () {
-    try { await this.room.leave() } catch {}
-    try { await this.swarm.destroy() } catch {}
-    try { await this.log.close() } catch {}
+  async close() {
+    try {
+      await this.room.leave()
+    } catch {}
+    try {
+      await this.swarm.destroy()
+    } catch {}
+    try {
+      await this.log.close()
+    } catch {}
   }
 }
 
-async function createSession ({ name, storeDir }) {
+async function createSession({ name, storeDir }) {
   const log = await createLog(storeDir)
   return new Session({ log, name, storeDir })
 }
 
-async function joinSession ({ name, key, storeDir }) {
+async function joinSession({ name, key, storeDir }) {
   const log = await openLog(storeDir, key)
   return new Session({ log, name, storeDir })
 }

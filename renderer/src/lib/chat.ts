@@ -77,7 +77,9 @@ export function buildFeed(
     const gy = y.kind === 'event' ? 0 : 1
     if (gx !== gy) return gx - gy
     if (x.kind === 'event' && y.kind === 'event') {
-      if (EVENT_RANK[x.event] !== EVENT_RANK[y.event]) return EVENT_RANK[x.event] - EVENT_RANK[y.event]
+      if (EVENT_RANK[x.event] !== EVENT_RANK[y.event]) {
+        return EVENT_RANK[x.event] - EVENT_RANK[y.event]
+      }
       return x.label.localeCompare(y.label)
     }
     if (x.kind === 'message' && y.kind === 'message') return x.seq - y.seq

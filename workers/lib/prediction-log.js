@@ -8,38 +8,51 @@ const { verify } = require('./commit-reveal.js')
 
 const MAX_CHAT_LEN = 2000
 
-function viewValue (node) {
+function viewValue(node) {
   return node ? node.value : null
 }
 
-function padSeq (n) {
+function padSeq(n) {
   return String(n).padStart(12, '0')
 }
 
 class PredictionLog {
-  constructor ({ storeDir, store, bootstrap = null }) {
+  constructor({ storeDir, store, bootstrap = null }) {
     this.store = store || new Corestore(storeDir)
     this._onUpdate = () => {}
     this.base = new Autobase(this.store, bootstrap, {
       valueEncoding: 'json',
       ackInterval: 1000,
-      open: (store) => new Hyperbee(store.get('view'), { keyEncoding: 'utf-8', valueEncoding: 'json', extension: false }),
+      open: (store) =>
+        new Hyperbee(store.get('view'), {
+          keyEncoding: 'utf-8',
+          valueEncoding: 'json',
+          extension: false
+        }),
       apply: this._apply.bind(this)
     })
   }
 
-  async ready () {
+  async ready() {
     await this.base.ready()
     this.base.on('update', () => this._onUpdate())
     return this
   }
 
-  get key () { return b4a.toString(this.base.key, 'hex') }
-  get localWriterKey () { return b4a.toString(this.base.local.key, 'hex') }
-  get writable () { return this.base.writable }
-  get isHost () { return b4a.equals(this.base.local.key, this.base.key) }
+  get key() {
+    return b4a.toString(this.base.key, 'hex')
+  }
+  get localWriterKey() {
+    return b4a.toString(this.base.local.key, 'hex')
+  }
+  get writable() {
+    return this.base.writable
+  }
+  get isHost() {
+    return b4a.equals(this.base.local.key, this.base.key)
+  }
 
-  async _apply (nodes, view, host) {
+  async _apply(nodes, view, host) {
     for (const node of nodes) {
       const v = node.value
       if (!v || typeof v.type !== 'string') continue
@@ -54,11 +67,24 @@ class PredictionLog {
       } else if (v.type === 'add-match') {
         if (from !== hostKey) continue
         if (viewValue(await view.get('match/' + v.id)) !== null) continue
-        await view.put('match/' + v.id, { id: v.id, teamA: v.teamA, teamB: v.teamB, status: 'open', createdAt: v.createdAt })
+        await view.put('match/' + v.id, {
+          id: v.id,
+          teamA: v.teamA,
+          teamB: v.teamB,
+          status: 'open',
+          createdAt: v.createdAt
+        })
       } else if (v.type === 'commit') {
         const match = viewValue(await view.get('match/' + v.matchId))
         if (!match || match.status !== 'open') continue
-        await view.put('pred/' + v.matchId + '/' + from, { matchId: v.matchId, author: from, authorName: v.name, hash: v.hash, status: 'committed', committedAt: v.createdAt })
+        await view.put('pred/' + v.matchId + '/' + from, {
+          matchId: v.matchId,
+          author: from,
+          authorName: v.name,
+          hash: v.hash,
+          status: 'committed',
+          committedAt: v.createdAt
+        })
       } else if (v.type === 'lock') {
         if (from !== hostKey) continue
         const match = viewValue(await view.get('match/' + v.matchId))
@@ -68,7 +94,11 @@ class PredictionLog {
         if (from !== hostKey) continue
         const match = viewValue(await view.get('match/' + v.matchId))
         if (!match || match.status !== 'locked') continue
-        await view.put('match/' + v.matchId, { ...match, result: { a: v.a, b: v.b }, resultAt: v.createdAt })
+        await view.put('match/' + v.matchId, {
+          ...match,
+          result: { a: v.a, b: v.b },
+          resultAt: v.createdAt
+        })
       } else if (v.type === 'chat') {
         const match = viewValue(await view.get('match/' + v.matchId))
         if (!match) continue
@@ -76,64 +106,120 @@ class PredictionLog {
         if (!text || text.length > MAX_CHAT_LEN) continue
         const seq = (viewValue(await view.get('meta/chatSeq')) || 0) + 1
         await view.put('meta/chatSeq', seq)
-        await view.put('chat/' + v.matchId + '/' + padSeq(seq), { matchId: v.matchId, author: from, authorName: v.name, text, createdAt: v.createdAt, seq })
+        await view.put('chat/' + v.matchId + '/' + padSeq(seq), {
+          matchId: v.matchId,
+          author: from,
+          authorName: v.name,
+          text,
+          createdAt: v.createdAt,
+          seq
+        })
       } else if (v.type === 'reveal') {
         const match = viewValue(await view.get('match/' + v.matchId))
         const pred = viewValue(await view.get('pred/' + v.matchId + '/' + from))
         if (!match || match.status !== 'locked' || !pred || pred.author !== from) continue
         const ok = verify(v.score, v.nonce, pred.hash)
-        await view.put('pred/' + v.matchId + '/' + from, { ...pred, status: ok ? 'revealed' : 'invalid', score: ok ? v.score : pred.score })
+        await view.put('pred/' + v.matchId + '/' + from, {
+          ...pred,
+          status: ok ? 'revealed' : 'invalid',
+          score: ok ? v.score : pred.score
+        })
       }
     }
   }
 
-  async createInit () { await this.base.append({ type: 'init', host: this.localWriterKey }) }
-  async addWriter (keyHex, name) { await this.base.append({ type: 'add-writer', key: keyHex, name }) }
-  async addMatch (id, teamA, teamB, createdAt) { await this.base.append({ type: 'add-match', id, teamA, teamB, createdAt }) }
-  async commit (matchId, hash, name, createdAt = Date.now()) { await this.base.append({ type: 'commit', matchId, hash, name, createdAt }) }
-  async lockMatch (matchId, createdAt = Date.now()) { await this.base.append({ type: 'lock', matchId, createdAt }) }
-  async setResult (matchId, a, b, createdAt = Date.now()) { await this.base.append({ type: 'set-result', matchId, a, b, createdAt }) }
-  async chat (matchId, text, name, createdAt = Date.now()) { await this.base.append({ type: 'chat', matchId, text, name, createdAt }) }
-  async reveal (matchId, score, nonce) { await this.base.append({ type: 'reveal', matchId, score, nonce }) }
+  async createInit() {
+    await this.base.append({ type: 'init', host: this.localWriterKey })
+  }
+  async addWriter(keyHex, name) {
+    await this.base.append({ type: 'add-writer', key: keyHex, name })
+  }
+  async addMatch(id, teamA, teamB, createdAt) {
+    await this.base.append({ type: 'add-match', id, teamA, teamB, createdAt })
+  }
+  async commit(matchId, hash, name, createdAt = Date.now()) {
+    await this.base.append({ type: 'commit', matchId, hash, name, createdAt })
+  }
+  async lockMatch(matchId, createdAt = Date.now()) {
+    await this.base.append({ type: 'lock', matchId, createdAt })
+  }
+  async setResult(matchId, a, b, createdAt = Date.now()) {
+    await this.base.append({ type: 'set-result', matchId, a, b, createdAt })
+  }
+  async chat(matchId, text, name, createdAt = Date.now()) {
+    await this.base.append({ type: 'chat', matchId, text, name, createdAt })
+  }
+  async reveal(matchId, score, nonce) {
+    await this.base.append({ type: 'reveal', matchId, score, nonce })
+  }
 
-  onUpdate (cb) { this._onUpdate = cb }
-  replicate (stream) { return this.base.replicate(stream) }
-  async update () { await this.base.update() }
+  onUpdate(cb) {
+    this._onUpdate = cb
+  }
+  replicate(stream) {
+    return this.base.replicate(stream)
+  }
+  async update() {
+    await this.base.update()
+  }
 
-  async snapshot () {
+  async snapshot() {
     const host = viewValue(await this.base.view.get('meta/host'))
     const matches = []
-    for await (const { value } of this.base.view.createReadStream({ gte: 'match/', lt: 'match0' })) {
+    for await (const { value } of this.base.view.createReadStream({
+      gte: 'match/',
+      lt: 'match0'
+    })) {
       matches.push(value)
     }
     matches.sort((a, b) => a.createdAt - b.createdAt)
     const predictions = {}
     for await (const { value } of this.base.view.createReadStream({ gte: 'pred/', lt: 'pred0' })) {
       if (!predictions[value.matchId]) predictions[value.matchId] = []
-      predictions[value.matchId].push({ author: value.author, authorName: value.authorName, status: value.status, score: value.score, committedAt: value.committedAt })
+      predictions[value.matchId].push({
+        author: value.author,
+        authorName: value.authorName,
+        status: value.status,
+        score: value.score,
+        committedAt: value.committedAt
+      })
     }
     const messages = {}
     for await (const { value } of this.base.view.createReadStream({ gte: 'chat/', lt: 'chat0' })) {
       if (!messages[value.matchId]) messages[value.matchId] = []
-      messages[value.matchId].push({ author: value.author, authorName: value.authorName, text: value.text, createdAt: value.createdAt, seq: value.seq })
+      messages[value.matchId].push({
+        author: value.author,
+        authorName: value.authorName,
+        text: value.text,
+        createdAt: value.createdAt,
+        seq: value.seq
+      })
     }
-    return { matches, predictions, messages, host, isHost: this.isHost, writable: this.writable, localAuthor: this.localWriterKey }
+    return {
+      matches,
+      predictions,
+      messages,
+      host,
+      isHost: this.isHost,
+      writable: this.writable,
+      localAuthor: this.localWriterKey
+    }
   }
 
-  async close () {
+  async close() {
     await this.base.close()
     await this.store.close()
   }
 }
 
-async function createLog (storeDir) {
+async function createLog(storeDir) {
   const log = new PredictionLog({ storeDir })
   await log.ready()
   await log.createInit()
   return log
 }
 
-async function openLog (storeDir, keyHex) {
+async function openLog(storeDir, keyHex) {
   const log = new PredictionLog({ storeDir, bootstrap: b4a.from(keyHex, 'hex') })
   await log.ready()
   return log

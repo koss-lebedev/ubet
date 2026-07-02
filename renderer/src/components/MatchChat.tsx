@@ -47,7 +47,10 @@ export function MatchChat({
           feed.map((item) => {
             if (item.kind === 'event') {
               return (
-                <div key={`e-${item.event}-${item.ts}-${item.label}`} className='flex justify-center'>
+                <div
+                  key={`e-${item.event}-${item.ts}-${item.label}`}
+                  className='flex justify-center'
+                >
                   <span className='bg-muted text-muted-foreground rounded-full px-3 py-1 text-xs'>
                     {item.label}
                   </span>
@@ -56,7 +59,10 @@ export function MatchChat({
             }
             const mine = item.author === localAuthor
             return (
-              <div key={`m-${item.seq}`} className={`flex flex-col ${mine ? 'items-end' : 'items-start'}`}>
+              <div
+                key={`m-${item.seq}`}
+                className={`flex flex-col ${mine ? 'items-end' : 'items-start'}`}
+              >
                 <div className='text-muted-foreground flex items-baseline gap-2 text-xs'>
                   <span className='font-medium'>{mine ? 'You' : item.authorName}</span>
                   <span>{clock(item.ts)}</span>
@@ -95,9 +101,7 @@ export function MatchChat({
             </Button>
           </div>
         ) : (
-          <p className='text-muted-foreground text-center text-xs'>
-            Join the room to chat.
-          </p>
+          <p className='text-muted-foreground text-center text-xs'>Join the room to chat.</p>
         )}
       </div>
     </div>

@@ -6,7 +6,7 @@ const { transformSync } = require('esbuild')
 
 // chat.ts is a pure module whose only imports are `import type` (erased at
 // compile), so we can transpile the real source and load it with no deps.
-function loadChat () {
+function loadChat() {
   const src = fs.readFileSync(path.join(__dirname, '../renderer/src/lib/chat.ts'), 'utf-8')
   const { code } = transformSync(src, { loader: 'ts', format: 'cjs' })
   const m = new Module('chat.ts')
@@ -19,7 +19,13 @@ const { buildFeed } = loadChat()
 const MATCH = { id: 'm1', teamA: {}, teamB: {}, status: 'open', createdAt: 1000 }
 
 test('built feed is chronological with correct event labels', (t) => {
-  const match = { ...MATCH, status: 'locked', lockedAt: 3000, resultAt: 4000, result: { a: 2, b: 1 } }
+  const match = {
+    ...MATCH,
+    status: 'locked',
+    lockedAt: 3000,
+    resultAt: 4000,
+    result: { a: 2, b: 1 }
+  }
   const predictions = [{ author: 'a', authorName: 'Ada', status: 'revealed', committedAt: 2000 }]
   const messages = [
     { author: 'a', authorName: 'Ada', text: 'first', createdAt: 1500, seq: 1 },
@@ -31,7 +37,10 @@ test('built feed is chronological with correct event labels', (t) => {
     ['E:created', 'M:first', 'E:committed', 'E:closed', 'M:gg', 'E:scored']
   )
   t.is(feed.find((i) => i.kind === 'event' && i.event === 'scored').label, 'Score updated — 2–1')
-  t.is(feed.find((i) => i.kind === 'event' && i.event === 'committed').label, 'Ada made a prediction')
+  t.is(
+    feed.find((i) => i.kind === 'event' && i.event === 'committed').label,
+    'Ada made a prediction'
+  )
 })
 
 test('events with missing timestamps are dropped, not piled at zero', (t) => {
@@ -39,7 +48,10 @@ test('events with missing timestamps are dropped, not piled at zero', (t) => {
   const match = { ...MATCH, status: 'locked' }
   const predictions = [{ author: 'a', authorName: 'Ada', status: 'committed' }] // no committedAt
   const feed = buildFeed(match, predictions, [])
-  t.alike(feed.map((i) => i.kind === 'event' && i.event), ['created'])
+  t.alike(
+    feed.map((i) => i.kind === 'event' && i.event),
+    ['created']
+  )
 })
 
 test('scored event requires a result even if resultAt is set', (t) => {

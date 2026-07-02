@@ -12,16 +12,16 @@ Each room is backed by an Autobase log. Every participant appends signed JSON en
 
 All entries share a `type` discriminator field. Entries marked **host only** are ignored unless appended from the room's host key.
 
-| `type` | Appended by | When | Payload (besides `type`) |
-|--------|-------------|------|--------------------------|
-| `init` | Host | Once, at room creation | `host` |
-| `add-writer` | Host | Admitting a participant into the multi-writer set | `key`, `name` |
-| `add-match` | Host only | Registering a new match | `id`, `teamA`, `teamB`, `createdAt` |
-| `commit` | Participant | Locking in a hidden prediction while the match is `open` | `matchId`, `hash`, `name`, `createdAt` |
-| `lock` | Host only | Closing a match to new predictions | `matchId`, `createdAt` |
-| `set-result` | Host only | Recording/correcting the final score of a `locked` match | `matchId`, `a`, `b`, `createdAt` |
-| `reveal` | Participant | Auto-appended once the match is `locked`, disclosing score + nonce | `matchId`, `score`, `nonce` |
-| `chat` | Participant | Posting a message to a match's chat thread | `matchId`, `text`, `name`, `createdAt` |
+| `type`       | Appended by | When                                                               | Payload (besides `type`)               |
+| ------------ | ----------- | ------------------------------------------------------------------ | -------------------------------------- |
+| `init`       | Host        | Once, at room creation                                             | `host`                                 |
+| `add-writer` | Host        | Admitting a participant into the multi-writer set                  | `key`, `name`                          |
+| `add-match`  | Host only   | Registering a new match                                            | `id`, `teamA`, `teamB`, `createdAt`    |
+| `commit`     | Participant | Locking in a hidden prediction while the match is `open`           | `matchId`, `hash`, `name`, `createdAt` |
+| `lock`       | Host only   | Closing a match to new predictions                                 | `matchId`, `createdAt`                 |
+| `set-result` | Host only   | Recording/correcting the final score of a `locked` match           | `matchId`, `a`, `b`, `createdAt`       |
+| `reveal`     | Participant | Auto-appended once the match is `locked`, disclosing score + nonce | `matchId`, `score`, `nonce`            |
+| `chat`       | Participant | Posting a message to a match's chat thread                         | `matchId`, `text`, `name`, `createdAt` |
 
 Notes:
 
@@ -37,14 +37,14 @@ Notes:
 
 The `apply` function reduces the linearised log into a Hyperbee key/value store:
 
-| Key | Value |
-|-----|-------|
-| `meta/host` | `"<writer-key-hex>"` |
-| `meta/chatSeq` | `<number>` — monotonic counter giving chat messages a total order |
-| `writer/<key>` | `{ "name": "<display-name>" }` |
-| `match/<id>` | `{ "id", "teamA", "teamB", "status": "open"\|"locked", "createdAt", "lockedAt"?, "result"?: { "a", "b" }, "resultAt"? }` |
-| `pred/<matchId>/<author-key>` | `{ "matchId", "author", "authorName", "hash", "status": "committed"\|"revealed"\|"invalid", "score"?, "committedAt" }` |
-| `chat/<matchId>/<padded-seq>` | `{ "matchId", "author", "authorName", "text", "createdAt", "seq" }` |
+| Key                           | Value                                                                                                                    |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `meta/host`                   | `"<writer-key-hex>"`                                                                                                     |
+| `meta/chatSeq`                | `<number>` — monotonic counter giving chat messages a total order                                                        |
+| `writer/<key>`                | `{ "name": "<display-name>" }`                                                                                           |
+| `match/<id>`                  | `{ "id", "teamA", "teamB", "status": "open"\|"locked", "createdAt", "lockedAt"?, "result"?: { "a", "b" }, "resultAt"? }` |
+| `pred/<matchId>/<author-key>` | `{ "matchId", "author", "authorName", "hash", "status": "committed"\|"revealed"\|"invalid", "score"?, "committedAt" }`   |
+| `chat/<matchId>/<padded-seq>` | `{ "matchId", "author", "authorName", "text", "createdAt", "seq" }`                                                      |
 
 ---
 
@@ -52,7 +52,7 @@ The `apply` function reduces the linearised log into a Hyperbee key/value store:
 
 Each room directory on disk (`storeDir`) contains:
 
-| File | Contents |
-|------|----------|
-| `room.json` | `{ "key", "name", "createdAt" }` — room manifest, written once |
+| File           | Contents                                                                             |
+| -------------- | ------------------------------------------------------------------------------------ |
+| `room.json`    | `{ "key", "name", "createdAt" }` — room manifest, written once                       |
 | `secrets.json` | `{ "<matchId>": { "a", "b", "nonce" } }` — plaintext scores and nonces, never shared |

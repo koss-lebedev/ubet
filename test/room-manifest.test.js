@@ -4,7 +4,7 @@ const fs = require('fs')
 const path = require('path')
 const { writeManifest, listManifests } = require('../workers/lib/room-manifest.js')
 
-function tmp () {
+function tmp() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'ubet-manifest-'))
 }
 
@@ -33,8 +33,14 @@ test('listManifests returns entries sorted newest-first', async (t) => {
   const r2 = path.join(root, 'room2')
   fs.mkdirSync(r1)
   fs.mkdirSync(r2)
-  fs.writeFileSync(path.join(r1, 'room.json'), JSON.stringify({ key: 'a'.repeat(64), name: 'Alice', createdAt: 1000 }))
-  fs.writeFileSync(path.join(r2, 'room.json'), JSON.stringify({ key: 'b'.repeat(64), name: 'Bob', createdAt: 2000 }))
+  fs.writeFileSync(
+    path.join(r1, 'room.json'),
+    JSON.stringify({ key: 'a'.repeat(64), name: 'Alice', createdAt: 1000 })
+  )
+  fs.writeFileSync(
+    path.join(r2, 'room.json'),
+    JSON.stringify({ key: 'b'.repeat(64), name: 'Bob', createdAt: 2000 })
+  )
   const results = await listManifests(root)
   t.is(results.length, 2)
   t.is(results[0].createdAt, 2000)
@@ -60,7 +66,10 @@ test('listManifests includes storeDir in each entry', async (t) => {
   const root = tmp()
   const r1 = path.join(root, 'room1')
   fs.mkdirSync(r1)
-  fs.writeFileSync(path.join(r1, 'room.json'), JSON.stringify({ key: 'a'.repeat(64), name: 'Alice', createdAt: 1000 }))
+  fs.writeFileSync(
+    path.join(r1, 'room.json'),
+    JSON.stringify({ key: 'a'.repeat(64), name: 'Alice', createdAt: 1000 })
+  )
   const results = await listManifests(root)
   t.is(results[0].storeDir, r1)
 })

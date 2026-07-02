@@ -1,6 +1,6 @@
-@import "tailwindcss";
-@import "tw-animate-css";
-@import "flag-icons/css/flag-icons.min.css";
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'flag-icons/css/flag-icons.min.css';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -78,6 +78,18 @@
 }
 
 .tab-scroll-fade {
-  -webkit-mask-image: linear-gradient(to right, transparent, black 24px, black calc(100% - 24px), transparent);
-  mask-image: linear-gradient(to right, transparent, black 24px, black calc(100% - 24px), transparent);
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent,
+    black 24px,
+    black calc(100% - 24px),
+    transparent
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    black 24px,
+    black calc(100% - 24px),
+    transparent
+  );
 }

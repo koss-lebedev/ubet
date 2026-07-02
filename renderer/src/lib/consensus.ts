@@ -74,12 +74,13 @@ export function computeConsensus(predictions: MatchPrediction[]): Consensus {
     if (!popular || count > popular.count) popular = { score: r.score, count }
   }
 
-  const sum = revealed.reduce(
-    (acc, r) => ({ a: acc.a + r.a, b: acc.b + r.b }),
-    { a: 0, b: 0 }
-  )
+  const sum = revealed.reduce((acc, r) => ({ a: acc.a + r.a, b: acc.b + r.b }), { a: 0, b: 0 })
   const avg = revealedCount
-    ? { a: round1(sum.a / revealedCount), b: round1(sum.b / revealedCount), total: round1((sum.a + sum.b) / revealedCount) }
+    ? {
+        a: round1(sum.a / revealedCount),
+        b: round1(sum.b / revealedCount),
+        total: round1((sum.a + sum.b) / revealedCount)
+      }
     : { a: 0, b: 0, total: 0 }
 
   const contrarians = majority

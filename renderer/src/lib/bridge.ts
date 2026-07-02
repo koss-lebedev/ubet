@@ -111,7 +111,7 @@ export function onEvent(cb: (e: WorkerEvent) => void): () => void {
         e.matches = e.matches.map((m) => ({
           ...m,
           teamA: typeof m.teamA === 'string' ? toTeam(m.teamA) : m.teamA,
-          teamB: typeof m.teamB === 'string' ? toTeam(m.teamB) : m.teamB,
+          teamB: typeof m.teamB === 'string' ? toTeam(m.teamB) : m.teamB
         }))
       }
       cb(e)

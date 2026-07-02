@@ -14,34 +14,40 @@ const pipe = new FramedStream(Bare.IPC)
 
 let session = null
 
-function sendEvent (obj) {
+function sendEvent(obj) {
   pipe.write(JSON.stringify(obj))
 }
 
-function roomsDir () {
+function roomsDir() {
   return path.join(updaterConfig.dir, 'rooms')
 }
 
-async function stopSession () {
+async function stopSession() {
   if (session) {
-    try { await session.close() } catch (err) { console.error(err) }
+    try {
+      await session.close()
+    } catch (err) {
+      console.error(err)
+    }
     session = null
   }
 }
 
-function wireState () {
-  session.onState((s) => sendEvent({
-    evt: 'log-state',
-    matches: s.matches,
-    predictions: s.predictions,
-    messages: s.messages,
-    mine: s.mine,
-    host: s.host,
-    isHost: s.isHost,
-    writable: s.writable,
-    localAuthor: s.localAuthor,
-    status: s.status
-  }))
+function wireState() {
+  session.onState((s) =>
+    sendEvent({
+      evt: 'log-state',
+      matches: s.matches,
+      predictions: s.predictions,
+      messages: s.messages,
+      mine: s.mine,
+      host: s.host,
+      isHost: s.isHost,
+      writable: s.writable,
+      localAuthor: s.localAuthor,
+      status: s.status
+    })
+  )
 }
 
 const updaterConfig = {
@@ -82,7 +88,11 @@ pipe.on('data', async (data) => {
   const text = data.toString()
 
   let msg = null
-  try { msg = JSON.parse(text) } catch { msg = null }
+  try {
+    msg = JSON.parse(text)
+  } catch {
+    msg = null
+  }
 
   if (!msg || typeof msg.cmd !== 'string') {
     if (text === 'pear:applyUpdate') {

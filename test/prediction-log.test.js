@@ -5,30 +5,41 @@ const path = require('path')
 const { createLog, openLog } = require('../workers/lib/prediction-log.js')
 const { commitHash, randomNonce } = require('../workers/lib/commit-reveal.js')
 
-function tmp () {
+function tmp() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'ubet-plog-'))
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
-async function pump (a, b, n = 16) {
+async function pump(a, b, n = 16) {
   for (let i = 0; i < n; i++) {
     await a.update()
     await b.update()
-    try { if (a.writable) await a.base.ack() } catch {}
+    try {
+      if (a.writable) await a.base.ack()
+    } catch {}
     await sleep(120)
   }
 }
 
-async function pair () {
+async function pair() {
   const host = await createLog(tmp())
   const joiner = await openLog(tmp(), host.key)
   const s1 = host.replicate(true)
   const s2 = joiner.replicate(false)
   s1.pipe(s2).pipe(s1)
-  return { host, joiner, destroy: async () => { s1.destroy(); s2.destroy(); await host.close(); await joiner.close() } }
+  return {
+    host,
+    joiner,
+    destroy: async () => {
+      s1.destroy()
+      s2.destroy()
+      await host.close()
+      await joiner.close()
+    }
+  }
 }
 
-async function admit (host, joiner) {
+async function admit(host, joiner) {
   await pump(host, joiner, 6)
   await host.addWriter(joiner.localWriterKey, 'Lena')
   for (let i = 0; i < 14 && !joiner.writable; i++) await pump(host, joiner, 1)
@@ -185,8 +196,14 @@ test('chat messages replicate and land in snapshot in order', async (t) => {
   for (const log of [host, joiner]) {
     const msgs = (await log.snapshot()).messages.m1
     t.is(msgs.length, 2)
-    t.alike(msgs.map((m) => m.text), ['hello', 'hi there'])
-    t.alike(msgs.map((m) => m.authorName), ['Ada', 'Lena'])
+    t.alike(
+      msgs.map((m) => m.text),
+      ['hello', 'hi there']
+    )
+    t.alike(
+      msgs.map((m) => m.authorName),
+      ['Ada', 'Lena']
+    )
     t.ok(msgs[0].seq < msgs[1].seq, 'seq is monotonic')
   }
   await destroy()

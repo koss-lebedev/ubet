@@ -246,7 +246,9 @@ function Leaderboard({ log }: { log: LogState }) {
                           key={m.id}
                           className={
                             'px-4 py-3 text-center' +
-                            (points === null ? ' text-muted-foreground' : ` ${TIER_TEXT_CLASS[tierFromPoints(points)]}`)
+                            (points === null
+                              ? ' text-muted-foreground'
+                              : ` ${TIER_TEXT_CLASS[tierFromPoints(points)]}`)
                           }
                         >
                           {points === null ? '–' : points}
@@ -314,7 +316,13 @@ function ScoreStatusBadge({ stage }: { stage: Stage }) {
   )
 }
 
-function VoteDistribution({ match, predictions }: { match: Match; predictions: MatchPrediction[] }) {
+function VoteDistribution({
+  match,
+  predictions
+}: {
+  match: Match
+  predictions: MatchPrediction[]
+}) {
   const { outcome } = computeConsensus(predictions)
   const segments = [
     { key: 'first', pct: outcome.firstPct, color: '#3B82F6' },
@@ -388,7 +396,9 @@ function PredictionRow({ match, p }: { match: Match; p: MatchPrediction }) {
             <span className='text-muted-foreground text-xs'>{p.status}</span>
           )}
           {tier ? (
-            <span className={`rounded-md bg-[#1E2A3B] px-2.5 py-1 text-[11px] font-semibold ${TIER_TEXT_CLASS[tier]}`}>
+            <span
+              className={`rounded-md bg-[#1E2A3B] px-2.5 py-1 text-[11px] font-semibold ${TIER_TEXT_CLASS[tier]}`}
+            >
               {TIER_LABEL[tier]} +{pointsFor(tier)}
             </span>
           ) : outcome === 'draw' ? (

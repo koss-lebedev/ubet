@@ -4,7 +4,7 @@ const fs = require('fs')
 const path = require('path')
 const { matchesToReveal, saveSecrets, loadSecrets } = require('../workers/lib/session.js')
 
-function tmp () {
+function tmp() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'ubet-session-'))
 }
 
