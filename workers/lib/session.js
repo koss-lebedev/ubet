@@ -109,8 +109,12 @@ class Session {
     await this.log.lockMatch(matchId)
   }
 
-  async setResult(matchId, a, b) {
-    await this.log.setResult(matchId, a, b)
+  async updateScore(matchId, a, b) {
+    await this.log.updateScore(matchId, a, b)
+  }
+
+  async finishMatch(matchId) {
+    await this.log.finishMatch(matchId)
   }
 
   async sendMessage(matchId, text) {
