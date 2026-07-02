@@ -114,7 +114,7 @@ module.exports = {
   ],
 
   hooks: {
-    readPackageJson: async (forgeConfig, packageJson) => {
+    readPackageJson: (forgeConfig, packageJson) => {
       if (process.env.UPGRADE_KEY) {
         packageJson.upgrade = process.env.UPGRADE_KEY
       }
@@ -127,7 +127,7 @@ module.exports = {
 
       return packageJson
     },
-    preMake: async () => {
+    preMake: () => {
       fs.rmSync(path.join(__dirname, 'out', 'make'), { recursive: true, force: true })
 
       const manifest = path.join(__dirname, 'build', 'AppxManifest.xml')
@@ -135,7 +135,7 @@ module.exports = {
       const xml = fs.readFileSync(manifest, 'utf-8')
       fs.writeFileSync(manifest, xml.replace(/Version="[^"]*"/, `Version="${msixVersion}"`))
     },
-    postMake: async (forgeConfig, results) => {
+    postMake: (forgeConfig, results) => {
       for (const result of results) {
         if (result.platform !== 'win32') continue
         for (const artifact of result.artifacts) {

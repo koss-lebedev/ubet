@@ -8,7 +8,7 @@ function makeFakeSwarm () {
     left: [],
     on (evt, cb) { (handlers[evt] = handlers[evt] || []).push(cb) },
     removeListener (evt, cb) { handlers[evt] = (handlers[evt] || []).filter((h) => h !== cb) },
-    join (topic, opts) { this.joined.push({ topic, opts }); return { flushed: async () => {} } },
+    join (topic, opts) { this.joined.push({ topic, opts }); return { flushed: () => Promise.resolve() } },
     leave (topic) { this.left.push(topic) },
     emitConnection (conn) { for (const h of (handlers.connection || [])) h(conn) }
   }

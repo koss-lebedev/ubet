@@ -82,7 +82,7 @@ declare global {
   }
 }
 
-const bridge = window.bridge
+const nativeBridge = window.bridge
 
 function toText(data: unknown): string {
   if (typeof data === 'string') return data
@@ -90,15 +90,15 @@ function toText(data: unknown): string {
 }
 
 export function startWorker(): void {
-  bridge.startWorker(WORKER_SPEC)
+  nativeBridge.startWorker(WORKER_SPEC)
 }
 
 export function send(cmd: Command): void {
-  bridge.writeWorkerIPC(WORKER_SPEC, JSON.stringify(cmd))
+  nativeBridge.writeWorkerIPC(WORKER_SPEC, JSON.stringify(cmd))
 }
 
 export function onEvent(cb: (e: WorkerEvent) => void): () => void {
-  return bridge.onWorkerIPC(WORKER_SPEC, (data) => {
+  return nativeBridge.onWorkerIPC(WORKER_SPEC, (data) => {
     let msg: unknown
     try {
       msg = JSON.parse(toText(data))
@@ -121,7 +121,7 @@ export function onEvent(cb: (e: WorkerEvent) => void): () => void {
 
 export function pkgVersion(): string {
   try {
-    return bridge.pkg().version
+    return nativeBridge.pkg().version
   } catch {
     return ''
   }
