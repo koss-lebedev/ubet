@@ -54,14 +54,14 @@ The `apply` function reduces the linearised log into a Hyperbee key/value store:
 
 ## Local files
 
-Two kinds of on-disk state live under the app-data root. The **global identity** is one wallet per user/device, shared across every tournament; each **tournament** has its own directory.
+Two kinds of on-disk state live under the app-data root. The **global identity** store holds this device's wallet identities (any number, one marked active) and is shared across every tournament; each **tournament** has its own directory.
 
 ### Global identity — `<app-data>/identity/`
 
-| File           | Contents                                                                                                  |
-| -------------- | --------------------------------------------------------------------------------------------------------- |
-| `wallet.enc`   | the BIP-39 seed, encrypted with the OS keychain (`safeStorage`); held only in Electron main, never shared |
-| `profile.json` | `{ "address", "name", "badges": [] }` — the derived EVM address and the chosen display name               |
+| File                  | Contents                                                                                                                            |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `index.json`          | `{ "active", "profiles": { "<address>": { "address", "name", "badges": [] } } }` — every identity's profile and which one is active |
+| `seeds/<address>.enc` | that identity's BIP-39 seed, encrypted with the OS keychain (`safeStorage`); one per identity, never shared, held only in main      |
 
 ### Per tournament — `storeDir` = `<app-data>/tournaments/<id>/`
 
@@ -76,12 +76,13 @@ Two kinds of on-disk state live under the app-data root. The **global identity**
 
 Identity is a self-custodial [WDK](https://docs.wdk.tether.io/) wallet. Its derived EVM address is a **stable, cross-tournament** identifier; the human-readable display name is a label bound to that address by an EIP-712 signature. Because WDK cannot run under the Bare worker (its dependency tree fails Bare's bundled semver engine-range parser), the wallet, the encrypted seed, and `safeStorage` all live in **Electron main**. The worker holds no keys — it delegates signing and verification to main over its pipe, and the seed never enters any tournament log.
 
-### 1. Identity is created on first run
+### 1. An identity is chosen or created
 
-The renderer asks main for the identity; if none exists yet, a wallet is generated, its seed encrypted with the OS keychain, and an empty profile written — all before the UI renders.
+On startup the renderer lists existing identities; nothing is created automatically. The user picks an existing identity or creates a new one — only then is a wallet generated, its seed encrypted with the OS keychain, and the identity made active.
 
 ```mermaid
 sequenceDiagram
+    actor U as User
     participant R as Renderer
     participant M as Electron main
     participant S as Identity store
@@ -89,20 +90,24 @@ sequenceDiagram
     participant K as safeStorage
     participant D as identity dir
 
-    R->>M: getIdentity()  (ipc: identity:get)
-    M->>S: loadOrCreate()
-    S->>D: read wallet.enc
-    D-->>S: not found (first run)
-    S->>W: getRandomSeedPhrase(24)
-    W-->>S: seed phrase
-    S->>W: walletFromSeed(seed)
-    W-->>S: EVM address
+    R->>M: listIdentities()  (ipc: identity:list)
+    M->>S: load()
+    S->>D: read index.json
+    D-->>S: {active, profiles}
+    S-->>M: {active, identities}
+    M-->>R: {active, identities}
+    Note over R: no active identity, so show the chooser
+    U->>R: Create new identity
+    R->>M: createIdentity()  (ipc: identity:create)
+    M->>S: create()
+    S->>W: getRandomSeedPhrase(24) + walletFromSeed
+    W-->>S: seed + EVM address
     S->>K: encryptString(seed)
     K-->>S: encrypted bytes
-    S->>D: write wallet.enc + profile.json {address, name: ""}
+    S->>D: write seeds/{address}.enc + index.json (active = address)
     S-->>M: {address, name: ""}
     M-->>R: {address, name: ""}
-    Note over R: empty name, so show the Identity setup screen
+    Note over R: prompt for a display name (step 2)
 ```
 
 ### 2. A display name is associated with the identity
@@ -120,7 +125,7 @@ sequenceDiagram
     U->>R: type display name, Continue
     R->>M: setName("Kostya")  (ipc: identity:setName)
     M->>S: setName("Kostya")
-    S->>D: rewrite profile.json {address, name: "Kostya"}
+    S->>D: update index.json (active profile name = "Kostya")
     S-->>M: {address, name: "Kostya"}
     M-->>R: {address, name: "Kostya"}
     Note over S,D: name lives in the global profile,<br/>reused for every tournament
@@ -148,7 +153,7 @@ sequenceDiagram
     Note over M: signs Identity{writerKey, address, name}<br/>with the wallet — seed never leaves main
     M-->>Wk: signature
     Wk->>L: append identity {writerKey, address, name, sig}
-    Note over L: reducer: writerKey must equal the entry's<br/>author (replay guard); then store writer/{key}
+    Note over L: reducer: writerKey must equal the entry's<br/>author (replay guard), then store writer/{key}
     L-->>P: replicate entry
     Note over Wk: per participant, once, then cached
     Wk->>M: wallet-verify {writerKey, address, name}, sig
@@ -156,4 +161,4 @@ sequenceDiagram
     Wk-->>R: log-state {participants: {key: {address, name, verified}}}
 ```
 
-**Two stores, one identity.** The global identity store (`identity/`) is a single wallet per device; each tournament store (`tournaments/<id>/`) is an independent P2P log. The wallet is layered _onto_ each tournament by publishing a signed `identity` entry — so the same address (and its display name and, later, achievement badges) is recognizable across every tournament, while the seed stays confined to Electron main.
+**Two stores, one identity.** The global identity store (`identity/`) holds this device's wallet identities (the active one signs); each tournament store (`tournaments/<id>/`) is an independent P2P log. The wallet is layered _onto_ each tournament by publishing a signed `identity` entry — so the same address (and its display name and, later, achievement badges) is recognizable across every tournament, while the seed stays confined to Electron main.
