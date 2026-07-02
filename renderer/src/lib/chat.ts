@@ -1,18 +1,20 @@
 import type { Match, MatchPrediction, ChatMessage } from '@/lib/bridge'
 
-export type FeedEvent = 'created' | 'committed' | 'closed' | 'scored'
+export type FeedEvent = 'created' | 'committed' | 'closed' | 'system'
 
 export type FeedItem =
   | { kind: 'message'; ts: number; author: string; authorName: string; text: string; seq: number }
-  | { kind: 'event'; ts: number; event: FeedEvent; label: string }
+  | { kind: 'event'; ts: number; event: FeedEvent; label: string; seq?: number }
 
 // When two items share a timestamp, events come before messages, and events
-// order among themselves by this rank (match lifecycle order).
+// order among themselves by this rank (match lifecycle order). Events sourced
+// from the chat stream (kind 'system') carry a seq and are ordered by that
+// instead, since it reflects true log order rather than wall-clock time.
 const EVENT_RANK: Record<FeedEvent, number> = {
   created: 0,
   committed: 1,
   closed: 2,
-  scored: 3
+  system: 3
 }
 
 function has(ts: number | undefined): ts is number {
@@ -50,24 +52,19 @@ export function buildFeed(
     items.push({ kind: 'event', ts: match.lockedAt, event: 'closed', label: 'Voting closed' })
   }
 
-  if (has(match.resultAt) && match.result) {
-    items.push({
-      kind: 'event',
-      ts: match.resultAt,
-      event: 'scored',
-      label: `Score updated — ${match.result.a}–${match.result.b}`
-    })
-  }
-
   for (const m of messages) {
-    items.push({
-      kind: 'message',
-      ts: m.createdAt,
-      author: m.author,
-      authorName: m.authorName,
-      text: m.text,
-      seq: m.seq
-    })
+    if (m.kind === 'system') {
+      items.push({ kind: 'event', ts: m.createdAt, event: 'system', label: m.text, seq: m.seq })
+    } else {
+      items.push({
+        kind: 'message',
+        ts: m.createdAt,
+        author: m.author,
+        authorName: m.authorName,
+        text: m.text,
+        seq: m.seq
+      })
+    }
   }
 
   items.sort((x, y) => {
@@ -77,6 +74,7 @@ export function buildFeed(
     const gy = y.kind === 'event' ? 0 : 1
     if (gx !== gy) return gx - gy
     if (x.kind === 'event' && y.kind === 'event') {
+      if (x.seq !== undefined && y.seq !== undefined) return x.seq - y.seq
       if (EVENT_RANK[x.event] !== EVENT_RANK[y.event]) {
         return EVENT_RANK[x.event] - EVENT_RANK[y.event]
       }

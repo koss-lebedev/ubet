@@ -8,10 +8,10 @@ export type Match = {
   id: string
   teamA: Team
   teamB: Team
-  status: 'open' | 'locked'
+  status: 'open' | 'locked' | 'final'
   createdAt: number
   lockedAt?: number
-  resultAt?: number
+  finishedAt?: number
   result?: { a: number; b: number }
 }
 
@@ -24,6 +24,7 @@ export type MatchPrediction = {
 }
 
 export type ChatMessage = {
+  kind: 'message' | 'system'
   author: string
   authorName: string
   text: string
@@ -63,7 +64,8 @@ export type Command =
   | { cmd: 'leave-tournament' }
   | { cmd: 'add-match'; teamA: Team; teamB: Team }
   | { cmd: 'lock-match'; matchId: string }
-  | { cmd: 'set-result'; matchId: string; a: number; b: number }
+  | { cmd: 'update-score'; matchId: string; a: number; b: number }
+  | { cmd: 'finish-match'; matchId: string }
   | { cmd: 'commit'; matchId: string; a: number; b: number }
   | { cmd: 'send-message'; matchId: string; text: string }
   | { cmd: 'list-tournaments' }
